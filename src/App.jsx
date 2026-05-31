@@ -533,7 +533,7 @@ export default function App() {
             <div style={{ padding: 16, borderBottom: `1px solid ${T.border}` }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#dce5ff" }}>새 종목</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 12 }}>
-                {[["종목명","name","종목명"],["수익률 (%)","returnRate","9.1"],["수익금 (원)","profit","1685896"]].map(([label,key,ph]) => (
+                {[["종목명","name",""],["수익률 (%)","returnRate",""],["수익금 (원)","profit",""]].map(([label,key,ph]) => (
                   <div key={key}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>{label}</label><input style={inp} placeholder={ph} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} /></div>
                 ))}
               </div>
@@ -564,8 +564,8 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <div style={{ marginBottom: 12 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>매매 이유</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} placeholder="매매 이유를 입력하세요" value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} /></div>
-              <div style={{ marginBottom: 14 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>반성</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} placeholder="잘한 점, 개선할 점" value={form.reflection} onChange={e => setForm(p => ({ ...p, reflection: e.target.value }))} /></div>
+              <div style={{ marginBottom: 12 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>매매 이유</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} placeholder="" value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} /></div>
+              <div style={{ marginBottom: 14 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>반성</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} placeholder="" value={form.reflection} onChange={e => setForm(p => ({ ...p, reflection: e.target.value }))} /></div>
               <div style={{ display: "flex", gap: 8 }}><Btn onClick={saveTrade}>추가</Btn><Btn variant="ghost" onClick={() => setShowForm(false)}>취소</Btn></div>
             </div>
           )}
