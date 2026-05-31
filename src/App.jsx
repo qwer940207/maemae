@@ -87,6 +87,9 @@ export default function App() {
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
+  const [parsing, setParsing] = useState(false);
+  const [parseMsg, setParseMsg] = useState("");
+  const importRef = useRef(null);
 
   const kakaoRef = useRef(null);
   const chartRef = useRef(null);
@@ -376,6 +379,42 @@ export default function App() {
     );
   };
 
+  const handleImportImage = (file) => {
+    if (!file?.type.startsWith("image/")) return;
+    setParsing(true);
+    setParseMsg("분석 중...");
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(",")[1];
+      const mediaType = file.type;
+      try {
+        const res = await fetch("/api/parse-trades", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mediaType })
+        });
+        const json = await res.json();
+        if (!json.date || !json.trades) throw new Error("파싱 실패");
+
+        const dateStr = json.date;
+        const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
+        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] };
+        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "기타", tagMedium: "기타", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" }));
+        const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
+        setDates(newDates);
+        setData(newData);
+        await save(newData, newDates, trash);
+        setParseMsg(`✓ ${json.trades.length}건 추가됨`);
+        setTimeout(() => { setParseMsg(""); openDate(dateStr); }, 1200);
+      } catch (e) {
+        setParseMsg("분석 실패 ✕");
+        setTimeout(() => setParseMsg(""), 2500);
+      }
+      setParsing(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // ──────────── LIST ────────────
   const renderList = () => (
     <div style={{ padding: "14px 12px" }}>
@@ -384,6 +423,11 @@ export default function App() {
           style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
         </button>
+        <button onClick={() => importRef.current?.click()} disabled={parsing}
+          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          📷 {parseMsg || "사진으로 가져오기"}
+        </button>
+        <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) handleImportImage(e.target.files[0]); e.target.value = ""; }} />
         <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
       </div>
       {dates.map(date => {
