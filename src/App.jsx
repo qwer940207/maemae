@@ -90,6 +90,8 @@ export default function App() {
   const [parsing, setParsing] = useState(false);
   const [parseMsg, setParseMsg] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importFile, setImportFile] = useState(null);
   const importRef = useRef(null);
 
   const kakaoRef = useRef(null);
@@ -409,14 +411,28 @@ export default function App() {
         setData(newData);
         await save(newData, newDates, trash);
         setParseMsg(`✓ ${json.trades.length}건 추가됨`);
-        setTimeout(() => { setParseMsg(""); openDate(dateStr); }, 1200);
+        setTimeout(() => { closeImportModal(); openDate(dateStr); }, 1200);
       } catch (e) {
         setParseMsg("분석 실패 ✕");
-        setTimeout(() => setParseMsg(""), 2500);
+        setTimeout(() => { setParseMsg(""); setImportPreview(null); setImportFile(null); }, 2500);
       }
       setParsing(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const setImportImage = (file) => {
+    setImportFile(file);
+    const reader = new FileReader();
+    reader.onload = e => setImportPreview(e.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportPreview(null);
+    setImportFile(null);
+    setParseMsg("");
   };
 
   // ──────────── IMPORT MODAL ────────────
@@ -424,28 +440,45 @@ export default function App() {
     if (!showImportModal) return null;
     return (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
-        onClick={() => setShowImportModal(false)}>
-        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "32px 28px", width: 340, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", textAlign: "center" }}
+        onClick={closeImportModal}>
+        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "28px 24px", width: 400, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", textAlign: "center" }}
           onClick={e => e.stopPropagation()}
           onPaste={e => {
             const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
             if (!item) return;
-            setShowImportModal(false);
-            handleImportImage(item.getAsFile());
+            setImportImage(item.getAsFile());
           }}>
-          <div style={{ fontSize: 40, marginBottom: 14 }}>📷</div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 8 }}>사진 가져오기</div>
-          <div style={{ fontSize: 13, color: T.sub, marginBottom: 24, lineHeight: 1.7 }}>
-            증권사 매매내역 화면을 캡처 후<br />
-            <span style={{ color: T.blue, fontWeight: 700 }}>Ctrl+V</span> 로 붙여넣기 하세요
-          </div>
-          <div style={{ border: `2px dashed ${T.inputBd}`, borderRadius: 12, padding: "24px 16px", marginBottom: 20, color: T.sub, fontSize: 13 }}>
-            여기에 Ctrl+V
-          </div>
-          <button onClick={() => importRef.current?.click()}
-            style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "9px 20px", color: T.sub, fontSize: 13, cursor: "pointer" }}>
-            파일로 선택하기
-          </button>
+          <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 6 }}>📷 사진 가져오기</div>
+          <div style={{ fontSize: 12, color: T.sub, marginBottom: 20 }}>증권사 매매내역 캡처 후 Ctrl+V로 붙여넣기</div>
+
+          {!importPreview ? (
+            <>
+              <div style={{ border: `2px dashed ${T.inputBd}`, borderRadius: 12, padding: "36px 16px", marginBottom: 16, color: T.sub, fontSize: 14 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🖼️</div>
+                여기에 <span style={{ color: T.blue, fontWeight: 700 }}>Ctrl+V</span>
+              </div>
+              <button onClick={() => importRef.current?.click()}
+                style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "9px 20px", color: T.sub, fontSize: 13, cursor: "pointer" }}>
+                파일로 선택하기
+              </button>
+            </>
+          ) : (
+            <>
+              <img src={importPreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 16, maxHeight: 260, objectFit: "contain", background: "#0d1018" }} />
+              {parseMsg
+                ? <div style={{ fontSize: 14, fontWeight: 700, color: parseMsg.includes("✓") ? T.green : T.red, marginBottom: 12 }}>{parseMsg}</div>
+                : <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={closeImportModal}
+                      style={{ flex: 1, padding: "11px", borderRadius: 10, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 14, cursor: "pointer" }}>취소</button>
+                    <button onClick={() => { handleImportImage(importFile); }}
+                      disabled={parsing}
+                      style={{ flex: 1, padding: "11px", borderRadius: 10, border: "none", background: T.tabActive, color: "#fff", fontSize: 14, fontWeight: 700, cursor: parsing ? "default" : "pointer", opacity: parsing ? 0.6 : 1 }}>
+                      {parsing ? "분석 중..." : "확인"}
+                    </button>
+                  </div>
+              }
+            </>
+          )}
         </div>
       </div>
     );
