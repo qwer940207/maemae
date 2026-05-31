@@ -504,8 +504,19 @@ export default function App() {
                 onPaste={e => {
                   e.preventDefault();
                   const raw = e.clipboardData.getData("text");
-                  const filtered = raw.split(/(?=\[)/).filter(s => s.startsWith("[용")).join("\n").trim();
-                  upd({ teacherComment: filtered || raw });
+                  const lines = raw.split("\n");
+                  const chunks = [];
+                  let cur = null;
+                  lines.forEach(line => {
+                    if (line.startsWith("[")) {
+                      if (cur !== null) chunks.push(cur.trim());
+                      cur = line.startsWith("[용") ? line : null;
+                    } else {
+                      if (cur !== null) cur += "\n" + line;
+                    }
+                  });
+                  if (cur !== null) chunks.push(cur.trim());
+                  upd({ teacherComment: chunks.join("\n") || raw });
                 }}
                 style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
             </div>
