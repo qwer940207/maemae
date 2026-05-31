@@ -85,6 +85,8 @@ export default function App() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
+  const [analysisTab, setAnalysisTab] = useState("시나리오");
+  const [analysisPeriod, setAnalysisPeriod] = useState("일별");
 
   const kakaoRef = useRef(null);
   const chartRef = useRef(null);
@@ -429,17 +431,38 @@ export default function App() {
           </div>
           <div style={{ padding: 16 }}>
             {!j.scenarios?.length && !showScenarioInput && <p style={{ color: T.sub, fontSize: 13, textAlign: "center", margin: "6px 0 12px" }}>아직 작성한 시나리오가 없습니다.</p>}
-            {j.scenarios?.map((sc, i) => (
-              <div key={i} style={{ background: T.card2, borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontSize: 13, color: T.text, lineHeight: 1.6, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <span style={{ flex: 1 }}>{sc}</span>
-                <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", marginLeft: 8, lineHeight: 1 }}>×</button>
-              </div>
-            ))}
+            {j.scenarios?.map((sc, i) => {
+              const text = typeof sc === "string" ? sc : sc.text;
+              const executed = typeof sc === "object" ? sc.executed : false;
+              const correct = typeof sc === "object" ? sc.correct : false;
+              const updSc = (patch) => {
+                const next = j.scenarios.map((s, k) => k !== i ? s : { text: typeof s === "string" ? s : s.text, executed: typeof s === "object" ? s.executed : false, correct: typeof s === "object" ? s.correct : false, ...patch });
+                upd({ scenarios: next });
+              };
+              return (
+                <div key={i} style={{ background: T.card2, borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontSize: 13, color: T.text, lineHeight: 1.6 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <span style={{ flex: 1 }}>{text}</span>
+                    <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", marginLeft: 8, lineHeight: 1 }}>×</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                      <input type="checkbox" checked={executed} onChange={e => updSc({ executed: e.target.checked })} style={{ accentColor: T.green, width: 14, height: 14 }} />
+                      <span style={{ color: executed ? T.green : T.sub }}>실행했음</span>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                      <input type="checkbox" checked={correct} onChange={e => updSc({ correct: e.target.checked })} style={{ accentColor: T.blue, width: 14, height: 14 }} />
+                      <span style={{ color: correct ? T.blue : T.sub }}>시장 맞았음</span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
             {showScenarioInput && (
               <div style={{ marginBottom: 10 }}>
                 <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)} style={{ ...inp, minHeight: 70, resize: "vertical", marginBottom: 8 }} placeholder="시나리오를 입력하세요..." autoFocus />
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), scenarioInput.trim()] }); setScenarioInput(""); setShowScenarioInput(false); }}>추가</Btn>
+                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { text: scenarioInput.trim(), executed: false, correct: false }] }); setScenarioInput(""); setShowScenarioInput(false); }}>추가</Btn>
                   <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setShowScenarioInput(false); }}>취소</Btn>
                 </div>
               </div>
@@ -592,6 +615,191 @@ export default function App() {
     );
   };
 
+  // ──────────── ANALYSIS ────────────
+  const renderAnalysis = () => {
+    // 모든 시나리오 수집
+    const allScenarios = [];
+    dates.forEach(date => {
+      (data[date]?.scenarios || []).forEach(sc => {
+        const text = typeof sc === "string" ? sc : sc.text;
+        const executed = typeof sc === "object" ? sc.executed : false;
+        const correct = typeof sc === "object" ? sc.correct : false;
+        allScenarios.push({ date, text, executed, correct });
+      });
+    });
+
+    // 전체 요약
+    const total = allScenarios.length;
+    const executedCount = allScenarios.filter(s => s.executed).length;
+    const correctCount = allScenarios.filter(s => s.correct).length;
+    const execRate = total > 0 ? (executedCount / total * 100).toFixed(1) : 0;
+    const correctRate = total > 0 ? (correctCount / total * 100).toFixed(1) : 0;
+
+    // 기간별 그룹핑
+    const grouped = {};
+    allScenarios.forEach(s => {
+      const d = new Date(s.date);
+      let key;
+      if (analysisPeriod === "일별") key = s.date;
+      else if (analysisPeriod === "주별") {
+        const startOfWeek = new Date(d);
+        startOfWeek.setDate(d.getDate() - d.getDay());
+        key = startOfWeek.toISOString().slice(0, 10);
+      } else {
+        key = s.date.slice(0, 7);
+      }
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(s);
+    });
+
+    const groupedKeys = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+    const ProgressBar = ({ rate, color }) => (
+      <div style={{ background: "#1a2035", borderRadius: 6, height: 8, overflow: "hidden", marginTop: 4 }}>
+        <div style={{ width: `${rate}%`, height: "100%", background: color, borderRadius: 6, transition: "width 0.4s" }} />
+      </div>
+    );
+
+    const fmtKey = (key) => {
+      if (analysisPeriod === "일별") return fmtDate(key);
+      if (analysisPeriod === "주별") return `${key} 주`;
+      const [y, m] = key.split("-");
+      return `${y}년 ${+m}월`;
+    };
+
+    // 태그 분석
+    const allTrades = [];
+    dates.forEach(d => (data[d]?.trades || []).forEach(t => allTrades.push(t)));
+    const tagGroups = {};
+    allTrades.forEach(t => {
+      const key = t.tagMedium || "기타";
+      if (!tagGroups[key]) tagGroups[key] = { count: 0, profit: 0, wins: 0 };
+      tagGroups[key].count++;
+      tagGroups[key].profit += t.profit || 0;
+      if (t.returnRate > 0) tagGroups[key].wins++;
+    });
+    const tagList = Object.entries(tagGroups).sort((a, b) => b[1].count - a[1].count);
+
+    return (
+      <div style={{ padding: 12 }}>
+        {/* 서브탭 */}
+        <div style={{ display: "flex", background: T.card, borderRadius: 10, padding: 4, marginBottom: 16, border: `1px solid ${T.border}` }}>
+          {["시나리오", "태그"].map(t => (
+            <button key={t} onClick={() => setAnalysisTab(t)}
+              style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600, fontSize: 14, background: analysisTab === t ? T.tabActive : "transparent", color: analysisTab === t ? "#fff" : T.sub, transition: "background 0.2s" }}>
+              {t} 분석
+            </button>
+          ))}
+        </div>
+
+        {analysisTab === "시나리오" && (
+          <>
+            <p style={{ fontSize: 12, color: T.sub, marginBottom: 14 }}>매매일지에 작성한 시나리오의 <span style={{ color: T.green }}>실행 여부</span>와 <span style={{ color: T.blue }}>시장 적중 여부</span>를 전체 시나리오 대비 비율로 집계합니다.</p>
+
+            {/* 전체 요약 */}
+            <div style={{ ...cardStyle(), padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>전체 요약</span>
+                <span style={{ fontSize: 12, color: T.sub }}>전체 시나리오 {total}건</span>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 2 }}>
+                  <span style={{ color: T.sub }}>실행률 (지켰음)</span>
+                  <span style={{ fontWeight: 700, color: T.green }}>{execRate}% ({executedCount}/{total})</span>
+                </div>
+                <ProgressBar rate={execRate} color={T.green} />
+              </div>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 2 }}>
+                  <span style={{ color: T.sub }}>시장 적중률 (맞았음)</span>
+                  <span style={{ fontWeight: 700, color: T.blue }}>{correctRate}% ({correctCount}/{total})</span>
+                </div>
+                <ProgressBar rate={correctRate} color={T.blue} />
+              </div>
+            </div>
+
+            {/* 기간 선택 */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {["일별", "주별", "월별"].map(p => (
+                <button key={p} onClick={() => setAnalysisPeriod(p)}
+                  style={{ padding: "6px 16px", borderRadius: 20, border: `1px solid ${analysisPeriod === p ? T.tabActive : T.inputBd}`, background: analysisPeriod === p ? "#1a2d50" : "transparent", color: analysisPeriod === p ? T.blue : T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            {/* 기간별 목록 */}
+            {groupedKeys.length === 0
+              ? <div style={{ textAlign: "center", color: T.sub, padding: "40px 0", fontSize: 13 }}>시나리오 데이터가 없습니다.</div>
+              : groupedKeys.map(key => {
+                const items = grouped[key];
+                const kTotal = items.length;
+                const kExec = items.filter(s => s.executed).length;
+                const kCorrect = items.filter(s => s.correct).length;
+                const kExecRate = (kExec / kTotal * 100).toFixed(1);
+                const kCorrectRate = (kCorrect / kTotal * 100).toFixed(1);
+                return (
+                  <div key={key} style={{ ...cardStyle(), padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{fmtKey(key)}</span>
+                      <span style={{ fontSize: 12, color: T.sub }}>시나리오 {kTotal}건</span>
+                    </div>
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                        <span style={{ color: T.sub }}>실행률</span>
+                        <span style={{ color: T.green, fontWeight: 600 }}>{kExecRate}% ({kExec}/{kTotal})</span>
+                      </div>
+                      <ProgressBar rate={kExecRate} color={T.green} />
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                        <span style={{ color: T.sub }}>시장 적중률</span>
+                        <span style={{ color: T.blue, fontWeight: 600 }}>{kCorrectRate}% ({kCorrect}/{kTotal})</span>
+                      </div>
+                      <ProgressBar rate={kCorrectRate} color={T.blue} />
+                    </div>
+                  </div>
+                );
+              })}
+          </>
+        )}
+
+        {analysisTab === "태그" && (
+          <>
+            <p style={{ fontSize: 12, color: T.sub, marginBottom: 14 }}>태그별 매매 횟수, 승률, 손익을 집계합니다.</p>
+            {tagList.length === 0
+              ? <div style={{ textAlign: "center", color: T.sub, padding: "40px 0", fontSize: 13 }}>매매 데이터가 없습니다.</div>
+              : tagList.map(([tag, stat]) => {
+                const winRate = (stat.wins / stat.count * 100).toFixed(1);
+                const pos = stat.profit >= 0;
+                return (
+                  <div key={tag} style={{ ...cardStyle(), padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: T.blue }}>{tag}</span>
+                      <span style={{ fontSize: 12, color: T.sub }}>{stat.count}건</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 16 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: T.sub, marginBottom: 2 }}>승률</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{winRate}%</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: T.sub, marginBottom: 2 }}>손익</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.green : T.red }}>{pos ? "+" : "-"}{fmtMoney(stat.profit)}</div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <ProgressBar rate={winRate} color={T.green} />
+                    </div>
+                  </div>
+                );
+              })}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // ──────────── MAIN ────────────
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
@@ -616,7 +824,8 @@ export default function App() {
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
         {tab === "대시보드" && renderDashboard()}
         {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
-        {!["대시보드","매매일지"].includes(tab) && (
+        {tab === "매매분석" && renderAnalysis()}
+        {!["대시보드","매매일지","매매분석"].includes(tab) && (
           <div style={{ textAlign: "center", color: T.sub, padding: "80px 20px" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>{NAV_TABS.find(t => t.id === tab)?.icon}</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{tab}</div>
