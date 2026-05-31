@@ -1,0 +1,623 @@
+import { useState, useRef, useEffect } from "react";
+
+// localStorage wrapper (window.storage 대체)
+const storage = {
+  get: (key) => {
+    try { return { value: localStorage.getItem(key) }; } catch { return { value: null }; }
+  },
+  set: (key, value) => {
+    try { localStorage.setItem(key, value); } catch {}
+  },
+};
+
+const LARGE_TAGS = ["양봉", "음봉", "횡보", "기타"];
+const MEDIUM_TAGS = {
+  "양봉": ["양봉종배", "양봉도지", "양봉역망치", "갭상승", "투매", "상따", "기타"],
+  "음봉": ["음봉종배", "음봉도지", "음봉망치", "갭하락", "1음봉", "연상상따", "1상승상따", "기타"],
+  "횡보": ["횡보박스", "삼각수렴", "기타"],
+  "기타": ["기타"]
+};
+const SMALL_TAGS = ["소분류 없음", "단타", "스윙", "중기", "장기"];
+const NAV_TABS = [
+  { id: "대시보드", icon: "📊" },
+  { id: "매매일지", icon: "📋" },
+  { id: "매매분석", icon: "📈" },
+  { id: "강의록", icon: "📚" },
+  { id: "자산/가계부", icon: "💰" }
+];
+
+const INIT_DATES = ["2026-06-01", "2026-05-31", "2026-05-30"];
+const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] }]));
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+const fmtDate = d => { const [y, m, day] = d.split("-"); return `${y}년 ${+m}월 ${+day}일`; };
+const fmtW = d => ["일","월","화","수","목","금","토"][new Date(d).getDay()];
+const fmtMoney = n => `₩${Math.abs(n).toLocaleString()}`;
+const readImg = (file, cb) => {
+  if (!file?.type.startsWith("image/")) return;
+  const r = new FileReader();
+  r.onload = e => cb(e.target.result);
+  r.readAsDataURL(file);
+};
+
+const T = {
+  bg: "#0d1018", card: "#161b27", card2: "#0f1320", border: "#1e2538",
+  input: "#191f2e", inputBd: "#263050", tabActive: "#2563eb",
+  text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8"
+};
+const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" };
+
+const Btn = ({ variant = "primary", style: s = {}, children, ...rest }) => (
+  <button style={{
+    border: "none", borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: "pointer", padding: "10px 18px",
+    background: variant === "primary" ? T.tabActive : variant === "danger" ? "#b91c1c" : T.input,
+    color: variant === "ghost" ? T.sub : "#fff",
+    ...(variant === "ghost" && { border: `1px solid ${T.inputBd}` }), ...s
+  }} {...rest}>{children}</button>
+);
+
+export default function App() {
+  const [tab, setTab] = useState("대시보드");
+  const [view, setView] = useState("list");
+  const [selDate, setSelDate] = useState(null);
+  const [data, setData] = useState(INIT_DATA);
+  const [dates, setDates] = useState(INIT_DATES);
+  const [trash, setTrash] = useState({});
+  const [kakaoOpen, setKakaoOpen] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+  const [loaded, setLoaded] = useState(false);
+  const [showScenarioInput, setShowScenarioInput] = useState(false);
+  const [scenarioInput, setScenarioInput] = useState("");
+  const [showCal, setShowCal] = useState(false);
+  const [calYear, setCalYear] = useState(2026);
+  const [calMonth, setCalMonth] = useState(5);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [confirmPermDelete, setConfirmPermDelete] = useState(null);
+
+  const kakaoRef = useRef(null);
+  const chartRef = useRef(null);
+
+  // 불러오기 + 3일 지난 항목 자동 정리
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = storage.get("tj_v4");
+        if (res?.value) {
+          const p = JSON.parse(res.value);
+          if (p.data) setData(p.data);
+          if (p.dates) setDates(p.dates);
+          if (p.trash) {
+            const now = Date.now();
+            const cleaned = Object.fromEntries(
+              Object.entries(p.trash).filter(([, v]) => now - v.deletedAt < THREE_DAYS_MS)
+            );
+            setTrash(cleaned);
+            if (Object.keys(cleaned).length !== Object.keys(p.trash).length) {
+              storage.set("tj_v4", JSON.stringify({ data: p.data, dates: p.dates, trash: cleaned }));
+            }
+          }
+        }
+      } catch {}
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    const onPaste = e => {
+      if (view !== "journal") return;
+      const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
+      if (!item) return;
+      const file = item.getAsFile();
+      if (showForm) readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
+      else readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [view, showForm, selDate]);
+
+  const j = selDate ? data[selDate] : null;
+
+  const save = (d, dl, tr) => {
+    try { storage.set("tj_v4", JSON.stringify({ data: d, dates: dl, trash: tr })); } catch {}
+  };
+
+  const upd = u => { setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
+
+  const openDate = date => {
+    setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
+    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] } });
+  };
+
+  const goBack = () => {
+    if (isDirty && !window.confirm("저장하지 않은 내용이 있어요.\n저장하지 않고 나가시겠어요?")) return;
+    setView("list"); setShowForm(false); setIsDirty(false); setSaveMsg("");
+  };
+
+  const handleSave = () => {
+    try {
+      save(data, dates, trash);
+      setSaveMsg("저장됐어요 ✓"); setIsDirty(false);
+    } catch { setSaveMsg("저장 실패 ✕"); }
+    setTimeout(() => setSaveMsg(""), 2500);
+  };
+
+  // 휴지통으로 이동
+  const deleteDate = () => {
+    const journalData = data[selDate];
+    const newDates = dates.filter(d => d !== selDate);
+    const newData = { ...data }; delete newData[selDate];
+    const newTrash = { ...trash, [selDate]: { deletedAt: Date.now(), journal: journalData } };
+    setDates(newDates); setData(newData); setTrash(newTrash);
+    setShowDeleteConfirm(false); setView("list"); setIsDirty(false);
+    save(newData, newDates, newTrash);
+  };
+
+  // 복원
+  const restoreDate = (date) => {
+    const item = trash[date];
+    const newDates = [...dates, date].sort((a, b) => b.localeCompare(a));
+    const newData = { ...data, [date]: item.journal };
+    const newTrash = { ...trash }; delete newTrash[date];
+    setDates(newDates); setData(newData); setTrash(newTrash);
+    save(newData, newDates, newTrash);
+  };
+
+  // 영구 삭제
+  const permanentDelete = (date) => {
+    const newTrash = { ...trash }; delete newTrash[date];
+    setTrash(newTrash); setConfirmPermDelete(null);
+    save(data, dates, newTrash);
+  };
+
+  const selectCalDate = (y, m, d) => {
+    const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    if (!dates.includes(dateStr)) {
+      setDates(p => [...p, dateStr].sort((a, b) => b.localeCompare(a)));
+      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] } }));
+    }
+    setShowCal(false); openDate(dateStr);
+  };
+
+  const saveTrade = () => {
+    if (!form.name.trim()) return;
+    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+    setShowForm(false);
+  };
+
+  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, marginBottom: 12, overflow: "hidden", ...e });
+  const hdStyle = (e = {}) => ({ padding: "13px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8, ...e });
+
+  const getTimeLeft = (deletedAt) => {
+    const msLeft = (deletedAt + THREE_DAYS_MS) - Date.now();
+    if (msLeft <= 0) return "곧 삭제";
+    const h = Math.ceil(msLeft / (60 * 60 * 1000));
+    if (h < 24) return `${h}시간 후 자동 삭제`;
+    return `${Math.ceil(msLeft / (24 * 60 * 60 * 1000))}일 후 자동 삭제`;
+  };
+
+  // ──────────── MODALS ────────────
+  const renderCalendar = () => {
+    if (!showCal) return null;
+    const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+    const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+    const firstDow = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const prevDays = new Date(calYear, calMonth, 0).getDate();
+    const today = "2026-06-01";
+    const cells = [];
+    for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, type: "prev" });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: "cur" });
+    const rem = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
+    for (let d = 1; d <= rem; d++) cells.push({ day: d, type: "next" });
+    const prevMonth = () => calMonth === 0 ? (setCalYear(y => y - 1), setCalMonth(11)) : setCalMonth(m => m - 1);
+    const nextMonth = () => calMonth === 11 ? (setCalYear(y => y + 1), setCalMonth(0)) : setCalMonth(m => m + 1);
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowCal(false)}>
+        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 320, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <button onClick={prevMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px", lineHeight: 1 }}>‹</button>
+            <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{calYear}년 {MONTHS[calMonth]}</span>
+            <button onClick={nextMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px", lineHeight: 1 }}>›</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 6 }}>
+            {DAYS.map((d, i) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, padding: "4px 0", color: i === 0 ? T.red : i === 6 ? T.blue : T.sub }}>{d}</div>)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "3px 2px" }}>
+            {cells.map((cell, i) => {
+              if (cell.type !== "cur") return <div key={i} style={{ textAlign: "center", padding: "9px 0", fontSize: 13, color: "#252d45" }}>{cell.day}</div>;
+              const ds = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(cell.day).padStart(2,"0")}`;
+              const hasEntry = dates.includes(ds); const isToday = ds === today;
+              const dow = (firstDow + cell.day - 1) % 7;
+              return (
+                <div key={i} onClick={() => selectCalDate(calYear, calMonth, cell.day)}
+                  style={{ textAlign: "center", padding: "9px 0", fontSize: 13, cursor: "pointer", borderRadius: 8, position: "relative", fontWeight: hasEntry || isToday ? 700 : 400, color: isToday ? "#fff" : dow === 0 ? T.red : dow === 6 ? T.blue : T.text, background: isToday ? T.tabActive : hasEntry ? "#1c2840" : "transparent" }}>
+                  {cell.day}
+                  {hasEntry && !isToday && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: T.green }} />}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <button onClick={() => setShowCal(false)} style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "8px 24px", color: T.sub, cursor: "pointer", fontSize: 13 }}>닫기</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTrash = () => {
+    if (!showTrash) return null;
+    const trashDates = Object.keys(trash).sort((a, b) => b.localeCompare(a));
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => { setShowTrash(false); setConfirmPermDelete(null); }}>
+        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, width: 380, maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+          <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>🗑️</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>휴지통</span>
+              <span style={{ fontSize: 11, color: T.sub }}>3일 후 자동 삭제</span>
+            </div>
+            <button onClick={() => { setShowTrash(false); setConfirmPermDelete(null); }} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ overflowY: "auto", flex: 1, padding: "10px 16px 16px" }}>
+            {trashDates.length === 0
+              ? <div style={{ textAlign: "center", color: T.sub, padding: "40px 0", fontSize: 13 }}>휴지통이 비어있어요 🙂</div>
+              : trashDates.map(date => {
+                const item = trash[date];
+                const trades = item.journal?.trades || [];
+                const isPerm = confirmPermDelete === date;
+                return (
+                  <div key={date} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, padding: "14px 16px", marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 3 }}>{fmtDate(date)}</div>
+                        <div style={{ fontSize: 11, color: T.sub }}>매매 {trades.length}건</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#e9956e", fontWeight: 600 }}>{getTimeLeft(item.deletedAt)}</div>
+                    </div>
+                    {isPerm
+                      ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 12, color: T.sub, flex: 1 }}>정말 영구 삭제할까요?</span>
+                          <button onClick={() => permanentDelete(date)} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#b91c1c", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확인</button>
+                          <button onClick={() => setConfirmPermDelete(null)} style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer" }}>취소</button>
+                        </div>
+                      : <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => restoreDate(date)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>복원</button>
+                          <button onClick={() => setConfirmPermDelete(date)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#1f0d0d", color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>영구 삭제</button>
+                        </div>}
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ──────────── DASHBOARD ────────────
+  const renderDashboard = () => {
+    const all = [];
+    dates.forEach(d => (data[d]?.trades || []).forEach(t => all.push({ ...t, date: d })));
+    const totalProfit = all.reduce((s, t) => s + t.profit, 0);
+    const wins = all.filter(t => t.returnRate > 0).length;
+    const winRate = all.length > 0 ? (wins / all.length * 100).toFixed(1) : "0.0";
+    const now = new Date();
+    const monthlyProfit = all.filter(t => { const [y, m] = t.date.split("-"); return +y === now.getFullYear() && +m === now.getMonth() + 1; }).reduce((s, t) => s + t.profit, 0);
+    const top5g = [...all].sort((a, b) => b.returnRate - a.returnRate).filter(t => t.returnRate > 0).slice(0, 5);
+    const top5l = [...all].sort((a, b) => a.returnRate - b.returnRate).filter(t => t.returnRate < 0).slice(0, 5);
+    const recent = [...all].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
+    const StatCard = ({ label, value, color }) => (
+      <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: "16px 18px" }}>
+        <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>{label}</div>
+        <div style={{ fontWeight: 800, fontSize: 24, color }}>{value}</div>
+      </div>
+    );
+    const Tag = ({ label, pos }) => <span style={{ padding: "2px 7px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: pos ? "#102030" : "#1f1020", color: pos ? T.blue : "#d07070", whiteSpace: "nowrap" }}>{label}</span>;
+    const TopItem = ({ t, pos }) => (
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{t.name}</span>
+            <Tag label={t.tagMedium} pos={pos} />
+          </div>
+          <span style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</span>
+        </div>
+        <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{fmtDate(t.date)}</div>
+      </div>
+    );
+    return (
+      <div style={{ padding: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <StatCard label="총 수익금" value={(totalProfit < 0 ? "-" : "") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.green : T.red} />
+          <StatCard label="승률" value={`${winRate}%`} color={T.text} />
+          <StatCard label="총 자산" value="₩0" color={T.text} />
+          <StatCard label="이번달 수지" value={(monthlyProfit < 0 ? "-" : "") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.green : T.red} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          {[{ title: "수익률 TOP 5", items: top5g, pos: true }, { title: "손실률 TOP 5", items: top5l, pos: false }].map(({ title, items, pos }) => (
+            <div key={title} style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: pos ? T.green : T.red, marginBottom: 14 }}>{title}</div>
+              {items.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : items.map((t, i) => <TopItem key={i} t={t} pos={pos} />)}
+            </div>
+          ))}
+        </div>
+        <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "13px 16px", borderBottom: `1px solid ${T.border}` }}><span style={{ fontWeight: 600, fontSize: 14, color: T.sub }}>최근 매매</span></div>
+          {recent.length === 0
+            ? <div style={{ padding: "32px", textAlign: "center", color: T.sub, fontSize: 13 }}>매매 내역이 없습니다.<br /><span style={{ fontSize: 11, marginTop: 4, display: "block" }}>매매일지에서 종목을 추가해보세요.</span></div>
+            : recent.map((t, i) => {
+              const pos = t.returnRate >= 0;
+              return (
+                <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{t.name}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
+                    <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</div>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+    );
+  };
+
+  // ──────────── LIST ────────────
+  const renderList = () => (
+    <div style={{ padding: "14px 12px" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+        <button onClick={() => setShowTrash(true)}
+          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
+        </button>
+        <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
+      </div>
+      {dates.map(date => {
+        const d = data[date] || {};
+        const trades = d.trades || [];
+        const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
+        return (
+          <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
+            <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 3 }}>{fmtDate(date)} ({fmtW(date)})</div>
+                <div style={{ fontSize: 12, color: T.sub }}>매매 {trades.length}건{d.scenarios?.length > 0 ? ` · 시나리오 ${d.scenarios.length}개` : ""}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {trades.length > 0 && <div style={{ fontWeight: 700, color: total >= 0 ? T.green : T.red, fontSize: 14 }}>{total >= 0 ? "+" : "-"}{fmtMoney(total)}</div>}
+                <span style={{ color: T.sub, fontSize: 18 }}>›</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ──────────── JOURNAL ────────────
+  const renderJournal = () => {
+    if (!j) return null;
+    const trades = j.trades || [];
+    return (
+      <div style={{ padding: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <button onClick={goBack} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 13px", fontSize: 13, color: T.sub, cursor: "pointer" }}>← 목록</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {isDirty && <span style={{ fontSize: 12, color: T.sub }}>● 저장 안 됨</span>}
+            <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+          </div>
+        </div>
+
+        {/* 시나리오 */}
+        <div style={cardStyle()}>
+          <div style={hdStyle()}>
+            <span style={{ fontSize: 17 }}>🎯</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>시나리오</span>
+            <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
+          </div>
+          <div style={{ padding: 16 }}>
+            {!j.scenarios?.length && !showScenarioInput && <p style={{ color: T.sub, fontSize: 13, textAlign: "center", margin: "6px 0 12px" }}>아직 작성한 시나리오가 없습니다.</p>}
+            {j.scenarios?.map((sc, i) => (
+              <div key={i} style={{ background: T.card2, borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontSize: 13, color: T.text, lineHeight: 1.6, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <span style={{ flex: 1 }}>{sc}</span>
+                <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", marginLeft: 8, lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+            {showScenarioInput && (
+              <div style={{ marginBottom: 10 }}>
+                <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)} style={{ ...inp, minHeight: 70, resize: "vertical", marginBottom: 8 }} placeholder="시나리오를 입력하세요..." autoFocus />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), scenarioInput.trim()] }); setScenarioInput(""); setShowScenarioInput(false); }}>추가</Btn>
+                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setShowScenarioInput(false); }}>취소</Btn>
+                </div>
+              </div>
+            )}
+            {!showScenarioInput && <button onClick={() => setShowScenarioInput(true)} style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 8, width: "100%", padding: "12px", color: T.sub, fontSize: 13, cursor: "pointer" }}>+ 시나리오 추가</button>}
+          </div>
+        </div>
+
+        {/* 카톡 캡처 / 선생님 코멘트 */}
+        <div style={cardStyle()}>
+          <div onClick={() => setKakaoOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!kakaoOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>💬</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>카톡 캡처 / 선생님 코멘트</span>
+              <span style={{ fontSize: 11, color: T.sub }}>사진 {(j.kakaoImages || []).length}장</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: kakaoOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
+          </div>
+          {kakaoOpen && (
+            <div style={{ padding: 16 }}>
+              {(j.kakaoImages || []).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                  {j.kakaoImages.map((img, i) => (
+                    <div key={i} style={{ position: "relative" }}>
+                      <img src={img} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }} />
+                      <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); }} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div onClick={() => kakaoRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "22px 16px", textAlign: "center", cursor: "pointer", background: T.input, marginBottom: 14 }}>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>🖼️</div>
+                <div style={{ color: T.sub, fontSize: 12 }}>클릭하여 선택 · 마우스를 올린 채 Ctrl+V로 붙여넣기</div>
+                <div style={{ fontSize: 11, color: "#3a4a6a", marginTop: 3 }}>사진 업로드 (여러 장 가능)</div>
+              </div>
+              <input ref={kakaoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); }))} />
+              <div style={{ fontSize: 13, color: T.sub, fontWeight: 600, marginBottom: 8 }}>선생님 코멘트</div>
+              <textarea value={j.teacherComment || ""} onChange={e => upd({ teacherComment: e.target.value })} style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
+            </div>
+          )}
+        </div>
+
+        {/* 매매내역 */}
+        <div style={cardStyle({ marginBottom: 0 })}>
+          <div style={hdStyle({ justifyContent: "space-between" })}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 17 }}>📊</span><span style={{ fontWeight: 700, fontSize: 15 }}>매매내역</span></div>
+            <Btn style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setShowForm(true)}>+ 새 종목</Btn>
+          </div>
+          {showForm && (
+            <div style={{ padding: 16, borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#dce5ff" }}>새 종목</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 12 }}>
+                {[["종목명","name","종목명"],["수익률 (%)","returnRate","9.1"],["수익금 (원)","profit","1685896"]].map(([label,key,ph]) => (
+                  <div key={key}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>{label}</label><input style={inp} placeholder={ph} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} /></div>
+                ))}
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대 → 중 → 소)</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
+                  <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                  <select style={inp} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))}>{(MEDIUM_TAGS[form.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
+                  <select style={inp} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                  <Btn style={{ padding: "10px 14px" }}>추가</Btn>
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
+                <div onClick={() => chartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: T.input }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>🖼️</div>
+                  <div style={{ color: T.sub, fontSize: 12 }}>클릭하여 선택 · 마우스를 올린 채 Ctrl+V로 붙여넣기</div>
+                </div>
+                <input ref={chartRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] }))))} />
+                {form.chartImages.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                    {form.chartImages.map((img, i) => (
+                      <div key={i} style={{ position: "relative" }}>
+                        <img src={img} alt="" style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6 }} />
+                        <button onClick={() => setForm(p => ({ ...p, chartImages: p.chartImages.filter((_, j) => j !== i) }))} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ marginBottom: 12 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>매매 이유</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} placeholder="매매 이유를 입력하세요" value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} /></div>
+              <div style={{ marginBottom: 14 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>반성</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} placeholder="잘한 점, 개선할 점" value={form.reflection} onChange={e => setForm(p => ({ ...p, reflection: e.target.value }))} /></div>
+              <div style={{ display: "flex", gap: 8 }}><Btn onClick={saveTrade}>추가</Btn><Btn variant="ghost" onClick={() => setShowForm(false)}>취소</Btn></div>
+            </div>
+          )}
+          <div style={{ padding: "8px 10px 10px" }}>
+            {trades.map(trade => {
+              const exp = expandedId === trade.id; const pos = trade.returnRate >= 0;
+              return (
+                <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8, overflow: "hidden" }}>
+                  <div onClick={() => setExpandedId(exp ? null : trade.id)} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{trade.name}</div>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{trade.tagMedium}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.green : T.red }}>{fmtMoney(trade.profit)}</div>
+                        <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{trade.returnRate}%</div>
+                      </div>
+                      <span style={{ color: T.sub, fontSize: 11, display: "inline-block", transform: exp ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+                    </div>
+                  </div>
+                  {exp && (
+                    <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${T.border}` }}>
+                      {trade.chartImages?.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, marginBottom: 10 }}>{trade.chartImages.map((img, i) => <img key={i} src={img} alt="" style={{ maxWidth: 160, maxHeight: 120, objectFit: "cover", borderRadius: 6 }} />)}</div>}
+                      {trade.reason && <div style={{ marginTop: 10 }}><div style={{ fontSize: 11, color: T.sub, marginBottom: 3, fontWeight: 600 }}>매매 이유</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{trade.reason}</div></div>}
+                      {trade.reflection && <div style={{ marginTop: 10 }}><div style={{ fontSize: 11, color: T.sub, marginBottom: 3, fontWeight: 600 }}>반성</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{trade.reflection}</div></div>}
+                      <Btn variant="danger" style={{ padding: "6px 12px", fontSize: 12, marginTop: 12 }} onClick={() => upd({ trades: trades.filter(t => t.id !== trade.id) })}>삭제</Btn>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {!trades.length && !showForm && <div style={{ textAlign: "center", color: T.sub, padding: "24px 0", fontSize: 13 }}>아직 매매 내역이 없습니다.</div>}
+          </div>
+        </div>
+
+        {/* 저장 / 일지 삭제 */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0 4px" }}>
+          <button onClick={() => setShowDeleteConfirm(true)} style={{ background: "none", border: `1px solid #3a1a1a`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "10px 18px", opacity: 0.8 }}>일지 삭제</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {saveMsg ? <span style={{ fontSize: 13, fontWeight: 600, color: saveMsg.includes("✓") ? T.green : T.red }}>{saveMsg}</span> : isDirty && <span style={{ fontSize: 12, color: T.sub }}>저장되지 않은 변경사항이 있어요</span>}
+            <Btn onClick={handleSave} style={{ padding: "11px 36px", fontSize: 15, opacity: isDirty ? 1 : 0.5 }}>저장</Btn>
+          </div>
+        </div>
+
+        {/* 삭제 확인 모달 */}
+        {showDeleteConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowDeleteConfirm(false)}>
+            <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "28px 24px", width: 300, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🗑️</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 8 }}>일지를 삭제할까요?</div>
+              <div style={{ fontSize: 13, color: T.sub, marginBottom: 6 }}>{fmtDate(selDate)}</div>
+              <div style={{ fontSize: 12, color: T.sub, marginBottom: 24 }}>삭제된 일지는 휴지통에서<br />3일 동안 복원할 수 있어요.</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowDeleteConfirm(false)} style={{ flex: 1, padding: "12px", borderRadius: 10, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>취소</button>
+                <button onClick={deleteDate} style={{ flex: 1, padding: "12px", borderRadius: 10, border: "none", background: "#b91c1c", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>삭제</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ──────────── MAIN ────────────
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
+      {renderCalendar()}
+      {renderTrash()}
+      <div style={{ borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ padding: "14px 16px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
+            <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
+            <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
+          </div>
+          <div style={{ display: "flex", gap: 2, overflowX: "auto" }}>
+            {NAV_TABS.map(t => (
+              <button key={t.id} onClick={() => { setTab(t.id); if (t.id === "매매일지") setView("list"); }}
+                style={{ padding: "8px 12px", borderRadius: "8px 8px 0 0", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#fff" : T.sub, background: tab === t.id ? T.tabActive : "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                {t.icon} {t.id}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+        {tab === "대시보드" && renderDashboard()}
+        {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
+        {!["대시보드","매매일지"].includes(tab) && (
+          <div style={{ textAlign: "center", color: T.sub, padding: "80px 20px" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>{NAV_TABS.find(t => t.id === tab)?.icon}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{tab}</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>준비 중입니다.</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

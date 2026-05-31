@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/user/Desktop/**)",
+      "Bash(npm create *)",
+      "PowerShell(Get-Command node, npm, npx -ErrorAction SilentlyContinue)",
+      "PowerShell(ls \"C:\\\\Program Files\\\\nodejs\" 2>$null; ls \"C:\\\\Program Files \\(x86\\)\\\\nodejs\" 2>$null; ls \"$env:APPDATA\\\\npm\" 2>$null; ls \"$env:LOCALAPPDATA\\\\Programs\\\\node\" 2>$null)"
+    ]
+  }
+}
