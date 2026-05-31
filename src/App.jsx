@@ -120,16 +120,19 @@ export default function App() {
 
   useEffect(() => {
     const onPaste = e => {
-      if (view !== "journal") return;
       const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
       if (!item) return;
       const file = item.getAsFile();
-      if (showForm) readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
-      else readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+      if (view === "list") {
+        handleImportImage(file);
+      } else if (view === "journal") {
+        if (showForm) readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
+        else readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+      }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate]);
+  }, [view, showForm, selDate, parsing]);
 
   const j = selDate ? data[selDate] : null;
 
@@ -425,7 +428,7 @@ export default function App() {
         </button>
         <button onClick={() => importRef.current?.click()} disabled={parsing}
           style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          📷 {parseMsg || "사진으로 가져오기"}
+          📷 {parseMsg || "사진"}
         </button>
         <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) handleImportImage(e.target.files[0]); e.target.value = ""; }} />
         <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
