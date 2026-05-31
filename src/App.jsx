@@ -500,7 +500,14 @@ export default function App() {
               </div>
               <input ref={kakaoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); }))} />
               <div style={{ fontSize: 13, color: T.sub, fontWeight: 600, marginBottom: 8 }}>선생님 코멘트</div>
-              <textarea value={j.teacherComment || ""} onChange={e => upd({ teacherComment: e.target.value })} style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
+              <textarea value={j.teacherComment || ""} onChange={e => upd({ teacherComment: e.target.value })}
+                onPaste={e => {
+                  e.preventDefault();
+                  const raw = e.clipboardData.getData("text");
+                  const filtered = raw.split(/(?=\[)/).filter(s => s.startsWith("[용")).join("\n").trim();
+                  upd({ teacherComment: filtered || raw });
+                }}
+                style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
             </div>
           )}
         </div>
