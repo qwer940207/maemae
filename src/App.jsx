@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "./supabase";
 
-// localStorage wrapper (window.storage 대체)
+const DB_ID = 1; // 단일 행으로 전체 데이터 관리
+
 const storage = {
-  get: (key) => {
-    try { return { value: localStorage.getItem(key) }; } catch { return { value: null }; }
+  get: async () => {
+    try {
+      const { data } = await supabase.from("maemae").select("data").eq("id", DB_ID).single();
+      return data?.data ?? null;
+    } catch { return null; }
   },
-  set: (key, value) => {
-    try { localStorage.setItem(key, value); } catch {}
+  set: async (value) => {
+    try {
+      await supabase.from("maemae").upsert({ id: DB_ID, data: value });
+    } catch {}
   },
 };
 
@@ -86,9 +93,8 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const res = storage.get("tj_v4");
-        if (res?.value) {
-          const p = JSON.parse(res.value);
+        const p = await storage.get();
+        if (p) {
           if (p.data) setData(p.data);
           if (p.dates) setDates(p.dates);
           if (p.trash) {
@@ -98,7 +104,7 @@ export default function App() {
             );
             setTrash(cleaned);
             if (Object.keys(cleaned).length !== Object.keys(p.trash).length) {
-              storage.set("tj_v4", JSON.stringify({ data: p.data, dates: p.dates, trash: cleaned }));
+              await storage.set({ data: p.data, dates: p.dates, trash: cleaned });
             }
           }
         }
@@ -122,8 +128,8 @@ export default function App() {
 
   const j = selDate ? data[selDate] : null;
 
-  const save = (d, dl, tr) => {
-    try { storage.set("tj_v4", JSON.stringify({ data: d, dates: dl, trash: tr })); } catch {}
+  const save = async (d, dl, tr) => {
+    try { await storage.set({ data: d, dates: dl, trash: tr }); } catch {}
   };
 
   const upd = u => { setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
@@ -138,9 +144,9 @@ export default function App() {
     setView("list"); setShowForm(false); setIsDirty(false); setSaveMsg("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
-      save(data, dates, trash);
+      await save(data, dates, trash);
       setSaveMsg("저장됐어요 ✓"); setIsDirty(false);
     } catch { setSaveMsg("저장 실패 ✕"); }
     setTimeout(() => setSaveMsg(""), 2500);
