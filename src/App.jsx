@@ -87,6 +87,8 @@ export default function App() {
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
+  const [editForms, setEditForms] = useState({});
+  const editChartRef = useRef(null);
   const [parsing, setParsing] = useState(false);
   const [parseMsg, setParseMsg] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
@@ -684,10 +686,18 @@ export default function App() {
           )}
           <div style={{ padding: "8px 10px 10px" }}>
             {trades.map(trade => {
-              const exp = expandedId === trade.id; const pos = trade.returnRate >= 0;
+              const exp = expandedId === trade.id;
+              const pos = trade.returnRate >= 0;
+              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
+              const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...ef, ...patch } }));
+              const savEdit = () => {
+                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
+                upd({ trades: trades.map(t => t.id === trade.id ? updated : t) });
+                setExpandedId(null);
+              };
               return (
                 <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8, overflow: "hidden" }}>
-                  <div onClick={() => setExpandedId(exp ? null : trade.id)} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                  <div onClick={() => { setExpandedId(exp ? null : trade.id); if (!exp) setEditForms(p => ({ ...p, [trade.id]: { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" } })); }} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
                       <div>
@@ -705,10 +715,43 @@ export default function App() {
                   </div>
                   {exp && (
                     <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${T.border}` }}>
-                      {trade.chartImages?.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, marginBottom: 10 }}>{trade.chartImages.map((img, i) => <img key={i} src={img} alt="" style={{ maxWidth: 160, maxHeight: 120, objectFit: "cover", borderRadius: 6 }} />)}</div>}
-                      {trade.reason && <div style={{ marginTop: 10 }}><div style={{ fontSize: 11, color: T.sub, marginBottom: 3, fontWeight: 600 }}>매매 이유</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{trade.reason}</div></div>}
-                      {trade.reflection && <div style={{ marginTop: 10 }}><div style={{ fontSize: 11, color: T.sub, marginBottom: 3, fontWeight: 600 }}>반성</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{trade.reflection}</div></div>}
-                      <Btn variant="danger" style={{ padding: "6px 12px", fontSize: 12, marginTop: 12 }} onClick={() => upd({ trades: trades.filter(t => t.id !== trade.id) })}>삭제</Btn>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 14, marginBottom: 12 }}>
+                        {[["종목명","name"],["수익률 (%)","returnRate"],["수익금 (원)","profit"]].map(([label,key]) => (
+                          <div key={key}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>{label}</label><input style={inp} value={ef[key]} onChange={e => setEf({ [key]: e.target.value })} /></div>
+                        ))}
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대 → 중 → 소)</label>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                          <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                          <select style={inp} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value })}>{(MEDIUM_TAGS[ef.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
+                          <select style={inp} value={ef.tagSmall} onChange={e => setEf({ tagSmall: e.target.value })}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
+                        {ef.chartImages.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                            {ef.chartImages.map((img, i) => (
+                              <div key={i} style={{ position: "relative" }}>
+                                <img src={img} alt="" style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6 }} />
+                                <button onClick={() => setEf({ chartImages: ef.chartImages.filter((_, k) => k !== i) })} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div onClick={() => editChartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "14px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}>
+                          🖼️ 클릭하여 추가
+                        </div>
+                        <input ref={editChartRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => setEf({ chartImages: [...ef.chartImages, src] })))} />
+                      </div>
+                      <div style={{ marginBottom: 12 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>매매 이유</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} value={ef.reason} onChange={e => setEf({ reason: e.target.value })} /></div>
+                      <div style={{ marginBottom: 16 }}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>반성</label><textarea style={{ ...inp, minHeight: 80, resize: "vertical", lineHeight: 1.6 }} value={ef.reflection} onChange={e => setEf({ reflection: e.target.value })} /></div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Btn onClick={savEdit}>저장</Btn>
+                        <Btn variant="ghost" onClick={() => setExpandedId(null)}>취소</Btn>
+                        <Btn variant="danger" style={{ marginLeft: "auto" }} onClick={() => upd({ trades: trades.filter(t => t.id !== trade.id) })}>삭제</Btn>
+                      </div>
                     </div>
                   )}
                 </div>
