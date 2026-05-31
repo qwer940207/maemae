@@ -89,6 +89,7 @@ export default function App() {
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
   const [parsing, setParsing] = useState(false);
   const [parseMsg, setParseMsg] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
   const importRef = useRef(null);
 
   const kakaoRef = useRef(null);
@@ -418,6 +419,38 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  // ──────────── IMPORT MODAL ────────────
+  const renderImportModal = () => {
+    if (!showImportModal) return null;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        onClick={() => setShowImportModal(false)}>
+        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "32px 28px", width: 340, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", textAlign: "center" }}
+          onClick={e => e.stopPropagation()}
+          onPaste={e => {
+            const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
+            if (!item) return;
+            setShowImportModal(false);
+            handleImportImage(item.getAsFile());
+          }}>
+          <div style={{ fontSize: 40, marginBottom: 14 }}>📷</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 8 }}>사진 가져오기</div>
+          <div style={{ fontSize: 13, color: T.sub, marginBottom: 24, lineHeight: 1.7 }}>
+            증권사 매매내역 화면을 캡처 후<br />
+            <span style={{ color: T.blue, fontWeight: 700 }}>Ctrl+V</span> 로 붙여넣기 하세요
+          </div>
+          <div style={{ border: `2px dashed ${T.inputBd}`, borderRadius: 12, padding: "24px 16px", marginBottom: 20, color: T.sub, fontSize: 13 }}>
+            여기에 Ctrl+V
+          </div>
+          <button onClick={() => importRef.current?.click()}
+            style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "9px 20px", color: T.sub, fontSize: 13, cursor: "pointer" }}>
+            파일로 선택하기
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // ──────────── LIST ────────────
   const renderList = () => (
     <div style={{ padding: "14px 12px" }}>
@@ -426,11 +459,11 @@ export default function App() {
           style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
         </button>
-        <button onClick={() => importRef.current?.click()} disabled={parsing}
+        <button onClick={() => setShowImportModal(true)} disabled={parsing}
           style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           📷 {parseMsg || "사진"}
         </button>
-        <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) handleImportImage(e.target.files[0]); e.target.value = ""; }} />
+        <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) { handleImportImage(e.target.files[0]); setShowImportModal(false); } e.target.value = ""; }} />
         <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
       </div>
       {dates.map(date => {
@@ -870,6 +903,7 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
       {renderCalendar()}
       {renderTrash()}
+      {renderImportModal()}
       <div style={{ borderBottom: `1px solid ${T.border}` }}>
         <div style={{ padding: "14px 16px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
