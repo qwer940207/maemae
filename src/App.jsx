@@ -38,6 +38,7 @@ const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], ka
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 const fmtDate = d => { const [y, m, day] = d.split("-"); return `${y}년 ${+m}월 ${+day}일`; };
+const truncName = n => n?.length > 10 ? n.slice(0, 10) + "…" : n;
 const fmtW = d => ["일","월","화","수","목","금","토"][new Date(d).getDay()];
 const fmtMoney = n => `₩${Math.abs(n).toLocaleString()}`;
 const readImg = (file, cb) => {
@@ -87,6 +88,12 @@ export default function App() {
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
+  const [dashPeriod, setDashPeriod] = useState("전체");
+  const [dashStart, setDashStart] = useState("");
+  const [dashEnd, setDashEnd] = useState("");
+  const [dashCalOpen, setDashCalOpen] = useState(null); // "start" | "end" | null
+  const [dashCalYear, setDashCalYear] = useState(new Date().getFullYear());
+  const [dashCalMonth, setDashCalMonth] = useState(new Date().getMonth());
   const [editForms, setEditForms] = useState({});
   const editChartRef = useRef(null);
   const [lightbox, setLightbox] = useState(null);
@@ -320,18 +327,91 @@ export default function App() {
     );
   };
 
+  // ──────────── DASH CALENDAR ────────────
+  const renderDashCalendar = () => {
+    if (!dashCalOpen) return null;
+    const DAYS = ["일","월","화","수","목","금","토"];
+    const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+    const firstDow = new Date(dashCalYear, dashCalMonth, 1).getDay();
+    const daysInMonth = new Date(dashCalYear, dashCalMonth + 1, 0).getDate();
+    const prevDays = new Date(dashCalYear, dashCalMonth, 0).getDate();
+    const cells = [];
+    for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, type: "prev" });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: "cur" });
+    const rem = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
+    for (let d = 1; d <= rem; d++) cells.push({ day: d, type: "next" });
+    const prevMonth = () => dashCalMonth === 0 ? (setDashCalYear(y => y-1), setDashCalMonth(11)) : setDashCalMonth(m => m-1);
+    const nextMonth = () => dashCalMonth === 11 ? (setDashCalYear(y => y+1), setDashCalMonth(0)) : setDashCalMonth(m => m+1);
+    const selectDate = (d) => {
+      const ds = `${dashCalYear}-${String(dashCalMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      if (dashCalOpen === "start") { setDashStart(ds); if (dashEnd && ds > dashEnd) setDashEnd(""); }
+      else { setDashEnd(ds); if (dashStart && ds < dashStart) setDashStart(""); }
+      setDashCalOpen(null);
+    };
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }} onClick={() => setDashCalOpen(null)}>
+        <div style={{ background:"#1a1f30", borderRadius:16, border:`1px solid ${T.border}`, padding:"20px", width:320, boxShadow:"0 20px 60px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+          <div style={{ textAlign:"center", fontSize:13, fontWeight:600, color:T.blue, marginBottom:12 }}>
+            {dashCalOpen === "start" ? "🗓 시작일 선택" : "🗓 종료일 선택"}
+          </div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+            <button onClick={prevMonth} style={{ background:"none", border:"none", color:T.sub, cursor:"pointer", fontSize:20, padding:"2px 8px", lineHeight:1 }}>‹</button>
+            <span style={{ fontWeight:700, fontSize:16, color:T.text }}>{dashCalYear}년 {MONTHS[dashCalMonth]}</span>
+            <button onClick={nextMonth} style={{ background:"none", border:"none", color:T.sub, cursor:"pointer", fontSize:20, padding:"2px 8px", lineHeight:1 }}>›</button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", marginBottom:6 }}>
+            {DAYS.map((d,i) => <div key={d} style={{ textAlign:"center", fontSize:11, fontWeight:600, padding:"4px 0", color:i===0?T.red:i===6?T.blue:T.sub }}>{d}</div>)}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px 2px" }}>
+            {cells.map((cell, i) => {
+              if (cell.type !== "cur") return <div key={i} style={{ textAlign:"center", padding:"9px 0", fontSize:13, color:"#252d45" }}>{cell.day}</div>;
+              const ds = `${dashCalYear}-${String(dashCalMonth+1).padStart(2,"0")}-${String(cell.day).padStart(2,"0")}`;
+              const isStart = ds === dashStart, isEnd = ds === dashEnd;
+              const inRange = dashStart && dashEnd && ds > dashStart && ds < dashEnd;
+              const dow = (firstDow + cell.day - 1) % 7;
+              return (
+                <div key={i} onClick={() => selectDate(cell.day)}
+                  style={{ textAlign:"center", padding:"9px 0", fontSize:13, cursor:"pointer", borderRadius:8, fontWeight:isStart||isEnd?700:400, color:isStart||isEnd?"#fff":dow===0?T.red:dow===6?T.blue:T.text, background:isStart||isEnd?T.tabActive:inRange?"#1c2840":"transparent" }}>
+                  {cell.day}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop:16, textAlign:"center" }}>
+            <button onClick={() => setDashCalOpen(null)} style={{ background:"none", border:`1px solid ${T.inputBd}`, borderRadius:8, padding:"8px 24px", color:T.sub, cursor:"pointer", fontSize:13 }}>닫기</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ──────────── DASHBOARD ────────────
   const renderDashboard = () => {
     const all = [];
     dates.forEach(d => (data[d]?.trades || []).forEach(t => all.push({ ...t, date: d })));
-    const totalProfit = all.reduce((s, t) => s + t.profit, 0);
-    const wins = all.filter(t => t.returnRate > 0).length;
-    const winRate = all.length > 0 ? (wins / all.length * 100).toFixed(1) : "0.0";
     const now = new Date();
+    const filtered = (() => {
+      if (dashPeriod === "이번달") return all.filter(t => { const [y,m] = t.date.split("-"); return +y === now.getFullYear() && +m === now.getMonth()+1; });
+      if (dashPeriod === "지난달") { const d = new Date(now.getFullYear(), now.getMonth()-1, 1); return all.filter(t => { const [y,m] = t.date.split("-"); return +y === d.getFullYear() && +m === d.getMonth()+1; }); }
+      if (dashPeriod === "최근3개월") { const ago = new Date(now); ago.setMonth(now.getMonth()-3); return all.filter(t => t.date >= ago.toISOString().slice(0,10)); }
+      if (dashPeriod === "직접입력" && dashStart && dashEnd) return all.filter(t => t.date >= dashStart && t.date <= dashEnd);
+      return all;
+    })();
+    const totalProfit = filtered.reduce((s, t) => s + t.profit, 0);
+    const wins = filtered.filter(t => t.returnRate > 0).length;
+    const winRate = filtered.length > 0 ? (wins / filtered.length * 100).toFixed(1) : "0.0";
     const monthlyProfit = all.filter(t => { const [y, m] = t.date.split("-"); return +y === now.getFullYear() && +m === now.getMonth() + 1; }).reduce((s, t) => s + t.profit, 0);
-    const top5g = [...all].sort((a, b) => b.returnRate - a.returnRate).filter(t => t.returnRate > 0).slice(0, 5);
-    const top5l = [...all].sort((a, b) => a.returnRate - b.returnRate).filter(t => t.returnRate < 0).slice(0, 5);
-    const recent = [...all].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
+    // 종목별 수익금 합산
+    const mergedMap = {};
+    filtered.forEach(t => {
+      if (!mergedMap[t.name]) mergedMap[t.name] = { name: t.name, profit: 0, tagMedium: t.tagMedium, date: t.date, count: 0 };
+      mergedMap[t.name].profit += t.profit;
+      mergedMap[t.name].count++;
+    });
+    const merged = Object.values(mergedMap);
+    const top5g = merged.filter(t => t.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
+    const top5l = merged.filter(t => t.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
+    const recent = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
     const StatCard = ({ label, value, color }) => (
       <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: "16px 18px" }}>
         <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>{label}</div>
@@ -343,16 +423,40 @@ export default function App() {
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-            <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{t.name}</span>
+            <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
             <Tag label={t.tagMedium} pos={pos} />
           </div>
-          <span style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</span>
+          <span style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
         </div>
-        <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{fmtDate(t.date)}</div>
+        <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{t.count > 1 ? `${t.count}번 매매 합산` : fmtDate(t.date)}</div>
       </div>
     );
     return (
       <div style={{ padding: 12 }}>
+        {/* 기간 선택 */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {["전체", "이번달", "지난달", "최근3개월", "직접입력"].map(p => (
+              <button key={p} onClick={() => setDashPeriod(p)}
+                style={{ padding: "6px 14px", borderRadius: 20, border: `1px solid ${dashPeriod === p ? T.tabActive : T.inputBd}`, background: dashPeriod === p ? "#1a2d50" : "transparent", color: dashPeriod === p ? T.blue : T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                {p}
+              </button>
+            ))}
+          </div>
+          {dashPeriod === "직접입력" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              <button onClick={() => { setDashCalYear(new Date().getFullYear()); setDashCalMonth(new Date().getMonth()); setDashCalOpen("start"); }}
+                style={{ ...inp, flex: 1, cursor: "pointer", textAlign: "center", color: dashStart ? T.text : T.sub, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                🗓 {dashStart || "시작일"}
+              </button>
+              <span style={{ color: T.sub, fontSize: 14, flexShrink: 0 }}>~</span>
+              <button onClick={() => { setDashCalYear(new Date().getFullYear()); setDashCalMonth(new Date().getMonth()); setDashCalOpen("end"); }}
+                style={{ ...inp, flex: 1, cursor: "pointer", textAlign: "center", color: dashEnd ? T.text : T.sub, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                🗓 {dashEnd || "종료일"}
+              </button>
+            </div>
+          )}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           <StatCard label="총 수익금" value={(totalProfit < 0 ? "-" : "") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.green : T.red} />
           <StatCard label="승률" value={`${winRate}%`} color={T.text} />
@@ -360,7 +464,7 @@ export default function App() {
           <StatCard label="이번달 수지" value={(monthlyProfit < 0 ? "-" : "") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.green : T.red} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          {[{ title: "수익률 TOP 5", items: top5g, pos: true }, { title: "손실률 TOP 5", items: top5l, pos: false }].map(({ title, items, pos }) => (
+          {[{ title: "수익금 TOP 5", items: top5g, pos: true }, { title: "손실금 TOP 5", items: top5l, pos: false }].map(({ title, items, pos }) => (
             <div key={title} style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: pos ? T.green : T.red, marginBottom: 14 }}>{title}</div>
               {items.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : items.map((t, i) => <TopItem key={i} t={t} pos={pos} />)}
@@ -375,7 +479,7 @@ export default function App() {
               const pos = t.returnRate >= 0;
               return (
                 <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{t.name}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
+                  <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{truncName(t.name)}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
                     <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</div>
@@ -702,7 +806,7 @@ export default function App() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{trade.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{truncName(trade.name)}</div>
                         <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{trade.tagMedium}</span>
                       </div>
                     </div>
@@ -979,6 +1083,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
       {renderCalendar()}
+      {renderDashCalendar()}
       {renderTrash()}
       {renderImportModal()}
       {lightbox && (
