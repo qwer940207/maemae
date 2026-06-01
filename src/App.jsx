@@ -97,6 +97,7 @@ export default function App() {
   const [editForms, setEditForms] = useState({});
   const editChartRef = useRef(null);
   const [lightbox, setLightbox] = useState(null);
+  const [selectedKakaoImg, setSelectedKakaoImg] = useState(0);
   const [parsing, setParsing] = useState(false);
   const [parseMsg, setParseMsg] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
@@ -707,19 +708,37 @@ export default function App() {
               <div style={{ flex: "0 0 45%", minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>카톡 캡처</div>
                 {(j.kakaoImages || []).length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
-                    {j.kakaoImages.map((img, i) => (
-                      <div key={i} style={{ position: "relative" }}>
-                        <img src={img} alt="" onClick={e => { e.stopPropagation(); setLightbox(img); }} style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
-                        <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); }} style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 12, cursor: "pointer" }}>×</button>
+                  <>
+                    {/* 썸네일 목록 */}
+                    <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 10, paddingBottom: 4 }}>
+                      {j.kakaoImages.map((img, i) => (
+                        <div key={i} style={{ position: "relative", flexShrink: 0 }}>
+                          <img src={img} alt="" onClick={() => setSelectedKakaoImg(i)}
+                            style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: selectedKakaoImg === i ? `2px solid ${T.blue}` : `2px solid transparent`, opacity: selectedKakaoImg === i ? 1 : 0.6 }} />
+                          <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(Math.max(0, i - 1)); }}
+                            style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                        </div>
+                      ))}
+                      {/* 추가 버튼 */}
+                      <div onClick={() => kakaoRef.current?.click()}
+                        style={{ width: 54, height: 54, borderRadius: 6, border: `1.5px dashed ${T.inputBd}`, background: T.input, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 20, color: T.sub }}>
+                        +
                       </div>
-                    ))}
+                    </div>
+                    {/* 선택된 사진 크게 보기 */}
+                    <div style={{ position: "relative" }}>
+                      <img src={j.kakaoImages[selectedKakaoImg] || j.kakaoImages[0]} alt=""
+                        onClick={() => setLightbox(j.kakaoImages[selectedKakaoImg] || j.kakaoImages[0])}
+                        style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
+                    </div>
+                  </>
+                )}
+                {!(j.kakaoImages || []).length && (
+                  <div onClick={() => kakaoRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "16px 10px", textAlign: "center", cursor: "pointer", background: T.input }}>
+                    <div style={{ fontSize: 20, marginBottom: 3 }}>🖼️</div>
+                    <div style={{ color: T.sub, fontSize: 11 }}>클릭 또는 Ctrl+V</div>
                   </div>
                 )}
-                <div onClick={() => kakaoRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "16px 10px", textAlign: "center", cursor: "pointer", background: T.input }}>
-                  <div style={{ fontSize: 20, marginBottom: 3 }}>🖼️</div>
-                  <div style={{ color: T.sub, fontSize: 11 }}>클릭 또는 Ctrl+V</div>
-                </div>
                 <input ref={kakaoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); }))} />
               </div>
 
