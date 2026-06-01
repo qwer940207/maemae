@@ -89,6 +89,7 @@ export default function App() {
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
   const [editForms, setEditForms] = useState({});
   const editChartRef = useRef(null);
+  const [lightbox, setLightbox] = useState(null);
   const [parsing, setParsing] = useState(false);
   const [parseMsg, setParseMsg] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
@@ -602,7 +603,7 @@ export default function App() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                   {j.kakaoImages.map((img, i) => (
                     <div key={i} style={{ position: "relative" }}>
-                      <img src={img} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }} />
+                      <img src={img} alt="" onClick={e => { e.stopPropagation(); setLightbox(img); }} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, cursor: "zoom-in" }} />
                       <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); }} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
                     </div>
                   ))}
@@ -734,7 +735,7 @@ export default function App() {
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
                             {ef.chartImages.map((img, i) => (
                               <div key={i} style={{ position: "relative" }}>
-                                <img src={img} alt="" style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6 }} />
+                                <img src={img} alt="" onClick={() => setLightbox(img)} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }} />
                                 <button onClick={() => setEf({ chartImages: ef.chartImages.filter((_, k) => k !== i) })} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
                               </div>
                             ))}
@@ -980,6 +981,11 @@ export default function App() {
       {renderCalendar()}
       {renderTrash()}
       {renderImportModal()}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, cursor: "zoom-out", padding: 16 }}>
+          <img src={lightbox} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10, objectFit: "contain", boxShadow: "0 0 40px rgba(0,0,0,0.8)" }} />
+        </div>
+      )}
       <div style={{ borderBottom: `1px solid ${T.border}` }}>
         <div style={{ padding: "14px 16px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
