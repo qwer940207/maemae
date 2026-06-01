@@ -702,43 +702,50 @@ export default function App() {
             <span style={{ color: T.sub, display: "inline-block", transform: kakaoOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
           {kakaoOpen && (
-            <div style={{ padding: 16 }}>
-              {(j.kakaoImages || []).length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                  {j.kakaoImages.map((img, i) => (
-                    <div key={i} style={{ position: "relative" }}>
-                      <img src={img} alt="" onClick={e => { e.stopPropagation(); setLightbox(img); }} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, cursor: "zoom-in" }} />
-                      <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); }} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
-                    </div>
-                  ))}
+            <div style={{ padding: 16, display: "flex", gap: 16, alignItems: "flex-start" }}>
+              {/* 왼쪽: 카톡 캡처 사진 */}
+              <div style={{ flex: "0 0 45%", minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>카톡 캡처</div>
+                {(j.kakaoImages || []).length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+                    {j.kakaoImages.map((img, i) => (
+                      <div key={i} style={{ position: "relative" }}>
+                        <img src={img} alt="" onClick={e => { e.stopPropagation(); setLightbox(img); }} style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
+                        <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); }} style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 12, cursor: "pointer" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div onClick={() => kakaoRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "16px 10px", textAlign: "center", cursor: "pointer", background: T.input }}>
+                  <div style={{ fontSize: 20, marginBottom: 3 }}>🖼️</div>
+                  <div style={{ color: T.sub, fontSize: 11 }}>클릭 또는 Ctrl+V</div>
                 </div>
-              )}
-              <div onClick={() => kakaoRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "22px 16px", textAlign: "center", cursor: "pointer", background: T.input, marginBottom: 14 }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>🖼️</div>
-                <div style={{ color: T.sub, fontSize: 12 }}>클릭하여 선택 · 마우스를 올린 채 Ctrl+V로 붙여넣기</div>
-                <div style={{ fontSize: 11, color: "#3a4a6a", marginTop: 3 }}>사진 업로드 (여러 장 가능)</div>
+                <input ref={kakaoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); }))} />
               </div>
-              <input ref={kakaoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); }))} />
-              <div style={{ fontSize: 13, color: T.sub, fontWeight: 600, marginBottom: 8 }}>선생님 코멘트</div>
-              <textarea value={j.teacherComment || ""} onChange={e => upd({ teacherComment: e.target.value })}
-                onPaste={e => {
-                  e.preventDefault();
-                  const raw = e.clipboardData.getData("text");
-                  const lines = raw.split("\n");
-                  const chunks = [];
-                  let cur = null;
-                  lines.forEach(line => {
-                    if (line.startsWith("[")) {
-                      if (cur !== null) chunks.push(cur.trim());
-                      cur = line.startsWith("[용") ? line : null;
-                    } else {
-                      if (cur !== null) cur += "\n" + line;
-                    }
-                  });
-                  if (cur !== null) chunks.push(cur.trim());
-                  upd({ teacherComment: chunks.join("\n") || raw });
-                }}
-                style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
+
+              {/* 오른쪽: 선생님 코멘트 */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>선생님 코멘트</div>
+                <textarea value={j.teacherComment || ""} onChange={e => upd({ teacherComment: e.target.value })}
+                  onPaste={e => {
+                    e.preventDefault();
+                    const raw = e.clipboardData.getData("text");
+                    const lines = raw.split("\n");
+                    const chunks = [];
+                    let cur = null;
+                    lines.forEach(line => {
+                      if (line.startsWith("[")) {
+                        if (cur !== null) chunks.push(cur.trim());
+                        cur = line.startsWith("[용") ? line : null;
+                      } else {
+                        if (cur !== null) cur += "\n" + line;
+                      }
+                    });
+                    if (cur !== null) chunks.push(cur.trim());
+                    upd({ teacherComment: chunks.join("\n") || raw });
+                  }}
+                  style={{ ...inp, minHeight: 400, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
+              </div>
             </div>
           )}
         </div>
