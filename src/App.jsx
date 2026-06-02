@@ -972,7 +972,7 @@ export default function App() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
                     {form.chartImages.map((img, i) => (
                       <div key={i} style={{ position: "relative" }}>
-                        <img src={img} alt="" style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6 }} />
+                        <img src={img} alt="" onClick={() => setLightbox(img)} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }} />
                         <button onClick={() => setForm(p => ({ ...p, chartImages: p.chartImages.filter((_, j) => j !== i) }))} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
                       </div>
                     ))}
