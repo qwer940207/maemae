@@ -18,7 +18,7 @@ const storage = {
 
 const LARGE_TAGS = ["종배", "시초매매", "장중매매", "스윙"];
 const MEDIUM_TAGS = {
-  "종배": ["상따", "양봉", "음봉", "기타"],
+  "종배": ["상따", "양봉종배", "음봉종배", "기타"],
   "시초매매": [],
   "장중매매": [],
   "스윙": [],
@@ -39,7 +39,7 @@ const NAV_TABS = [
 ];
 
 const INIT_DATES = ["2026-06-01", "2026-05-31", "2026-05-30"];
-const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] }]));
+const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] }]));
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 const fmtDate = d => { const [y, m, day] = d.split("-"); return `${y}년 ${+m}월 ${+day}일`; };
@@ -182,7 +182,7 @@ export default function App() {
 
   const openDate = date => {
     setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
-    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] } });
+    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] } });
   };
 
   const goBack = () => {
@@ -230,7 +230,7 @@ export default function App() {
     const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (!dates.includes(dateStr)) {
       setDates(p => [...p, dateStr].sort((a, b) => b.localeCompare(a)));
-      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] } }));
+      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] } }));
     }
     setShowCal(false); openDate(dateStr);
   };
@@ -540,7 +540,7 @@ export default function App() {
 
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
-        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] };
+        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] };
         const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
@@ -903,6 +903,20 @@ export default function App() {
                 + 시나리오 추가
               </button>
             )}
+          </div>
+        </div>
+
+        {/* 오늘의 정리 */}
+        <div style={cardStyle()}>
+          <div style={hdStyle()}>
+            <span style={{ fontSize: 17 }}>📝</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
+            <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+          </div>
+          <div style={{ padding: 16 }}>
+            <textarea value={j.todaySummary || ""} onChange={e => upd({ todaySummary: e.target.value })}
+              style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 13 }}
+              placeholder="오늘의 시장 흐름, 내 심리 상태, 잘한 점, 아쉬운 점 등을 자유롭게 적어보세요..." />
           </div>
         </div>
 
