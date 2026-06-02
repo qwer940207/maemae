@@ -703,20 +703,20 @@ export default function App() {
                     const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
                     const tags = [...new Set(trades.map(t => t.tagMedium).filter(Boolean))].slice(0, 4);
                     return (
-                      <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer", borderLeft: trades.length > 0 ? `4px solid ${total >= 0 ? T.profit : T.loss}` : `4px solid ${T.border}` }) }}>
-                        <div style={{ padding: "14px 16px" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tags.length ? 8 : 0 }}>
+                      <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
+                        <div style={{ padding: "16px 18px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tags.length ? 10 : 0 }}>
                             <div>
-                              <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 3 }}>{fmtDate(date)} ({fmtW(date)})</div>
-                              <div style={{ fontSize: 12, color: T.sub }}>
+                              <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 5 }}>{fmtDate(date)} ({fmtW(date)})</div>
+                              <div style={{ fontSize: 13, color: T.sub }}>
                                 종목 {trades.length}건{d.kakaoImages?.length > 0 ? ` · 카톡 ${d.kakaoImages.length}장` : ""}{d.teacherComment ? " · 코멘트 있음" : ""}
                               </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                               {trades.length > 0 && (
-                                <span style={{ padding: "4px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: total >= 0 ? "rgba(233,92,110,0.12)" : "rgba(91,124,248,0.12)", color: total >= 0 ? T.profit : T.loss }}>
+                                <div style={{ fontWeight: 700, color: total >= 0 ? T.profit : T.loss, fontSize: 15 }}>
                                   {total >= 0 ? "+" : "-"}{fmtMoney(total)}
-                                </span>
+                                </div>
                               )}
                               <span style={{ color: T.sub, fontSize: 18 }}>›</span>
                             </div>
@@ -982,7 +982,7 @@ export default function App() {
                 setExpandedId(null);
               };
               return (
-                <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, borderLeft: `4px solid ${pos ? T.profit : T.loss}`, marginBottom: 8, overflow: "hidden" }}>
+                <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8, overflow: "hidden" }}>
                   <div onClick={() => { setExpandedId(exp ? null : trade.id); if (!exp) setEditForms(p => ({ ...p, [trade.id]: { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" } })); }} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
