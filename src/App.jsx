@@ -168,14 +168,14 @@ export default function App() {
             ...p,
             [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
           })));
-        } else if (selDate) {
+        } else if (selDate && !showExpertForm) {
           readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
         }
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing, expandedId]);
+  }, [view, showForm, selDate, parsing, expandedId, showExpertForm]);
 
   const j = selDate ? data[selDate] : null;
 
