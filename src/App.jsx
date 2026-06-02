@@ -1279,7 +1279,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         {tab === "대시보드" && renderDashboard()}
         {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
         {tab === "매매분석" && renderAnalysis()}
