@@ -201,8 +201,10 @@ export default function App() {
     setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], tradeVolumeImg: null, watchlistImg: null, trades: [] } });
   };
 
-  const goBack = () => {
-    if (isDirty && !window.confirm("저장하지 않은 내용이 있어요.\n저장하지 않고 나가시겠어요?")) return;
+  const goBack = async () => {
+    if (isDirty) {
+      try { await save(data, dates, trash); } catch { /* 무시 */ }
+    }
     setView("list"); setShowForm(false); setIsDirty(false); setSaveMsg("");
   };
 
@@ -213,6 +215,20 @@ export default function App() {
     } catch { setSaveMsg("저장 실패 ✕"); }
     setTimeout(() => setSaveMsg(""), 2500);
   };
+
+  // 자동 저장: 변경 후 2초 뒤 자동 저장
+  useEffect(() => {
+    if (!isDirty || !selDate) return;
+    const timer = setTimeout(async () => {
+      try {
+        await save(data, dates, trash);
+        setIsDirty(false);
+        setSaveMsg("자동 저장됨 ✓");
+        setTimeout(() => setSaveMsg(""), 2000);
+      } catch { /* 실패 시 수동 저장 버튼으로 재시도 가능 */ }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [isDirty, data, dates, trash, selDate]);
 
   // 휴지통으로 이동
   const deleteDate = async () => {
@@ -564,7 +580,6 @@ export default function App() {
         await save(newData, newDates, trash);
         setParseMsg(`✓ ${json.trades.length}건 추가됨`);
         setTimeout(() => {
-          if (isDirty && !window.confirm("저장하지 않은 내용이 있어요.\n저장하지 않고 이동할까요?")) return;
           closeImportModal();
           openDate(dateStr);
         }, 1200);
@@ -1316,7 +1331,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0 4px" }}>
           <button onClick={() => setShowDeleteConfirm(true)} style={{ background: "none", border: `1px solid #3a1a1a`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "10px 18px", opacity: 0.8 }}>일지 삭제</button>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {saveMsg ? <span style={{ fontSize: 13, fontWeight: 600, color: saveMsg.includes("✓") ? T.green : T.red }}>{saveMsg}</span> : isDirty && <span style={{ fontSize: 12, color: T.sub }}>저장되지 않은 변경사항이 있어요</span>}
+            {saveMsg ? <span style={{ fontSize: 13, fontWeight: 600, color: saveMsg.includes("✓") ? T.green : T.red }}>{saveMsg}</span> : isDirty && <span style={{ fontSize: 12, color: T.sub }}>잠시 후 자동 저장...</span>}
             <Btn onClick={handleSave} style={{ padding: "11px 36px", fontSize: 15, opacity: isDirty ? 1 : 0.5 }}>저장</Btn>
           </div>
         </div>
