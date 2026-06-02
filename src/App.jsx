@@ -25,7 +25,10 @@ const MEDIUM_TAGS = {
 };
 const SMALL_TAGS = {
   "상따": ["1상승", "2상승", "3상승 이상"],
+  "양봉종배": ["1상승", "2상승", "3상승 이상"],
 };
+const DEFAULT_MEDIUM = MEDIUM_TAGS["종배"][0]; // "상따"
+const DEFAULT_SMALL = SMALL_TAGS[DEFAULT_MEDIUM]?.[0] || "";
 const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
@@ -79,7 +82,7 @@ export default function App() {
   const [kakaoOpen, setKakaoOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, lossReasons: [], chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
@@ -269,7 +272,7 @@ export default function App() {
   const saveTrade = () => {
     if (!form.name.trim()) return;
     upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, lossReasons: [], chartImages: [], reason: "", reflection: "" });
     setFormChartIdx(0);
     setShowForm(false);
   };
