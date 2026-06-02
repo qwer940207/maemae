@@ -929,7 +929,7 @@ export default function App() {
                         <div key={i} style={{ position: "relative", flexShrink: 0 }}>
                           <img src={img} alt="" onClick={() => setSelectedKakaoImg(i)}
                             style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: selectedKakaoImg === i ? `2px solid ${T.blue}` : `2px solid transparent`, opacity: selectedKakaoImg === i ? 1 : 0.6 }} />
-                          <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(imgs.length === 0 ? 0 : Math.min(selectedKakaoImg, imgs.length - 1)); }}
+                          <button onClick={() => { if (!window.confirm("이 사진을 삭제하시겠어요?")) return; const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(imgs.length === 0 ? 0 : Math.min(selectedKakaoImg, imgs.length - 1)); }}
                             style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                         </div>
                       ))}
