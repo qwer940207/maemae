@@ -39,7 +39,7 @@ const NAV_TABS = [
 ];
 
 const INIT_DATES = ["2026-06-01", "2026-05-31", "2026-05-30"];
-const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] }]));
+const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], tradeVolumeImg: null, watchlistImg: null, trades: [] }]));
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 const fmtDate = d => { const [y, m, day] = d.split("-"); return `${y}년 ${+m}월 ${+day}일`; };
@@ -124,10 +124,13 @@ export default function App() {
   const kakaoRef = useRef(null);
   const chartRef = useRef(null);
   const expertRef = useRef(null);
+  const tradeVolumeRef = useRef(null);
+  const watchlistRef = useRef(null);
   const [showExpertForm, setShowExpertForm] = useState(false);
   const [expertComment, setExpertComment] = useState("");
   const [expertImage, setExpertImage] = useState(null);
   const [expertOpen, setExpertOpen] = useState(true);
+  const [focusedImgField, setFocusedImgField] = useState(null);
 
   // 불러오기 + 3일 지난 항목 자동 정리
   useEffect(() => {
@@ -169,13 +172,21 @@ export default function App() {
             [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
           })));
         } else if (selDate && !showExpertForm) {
-          readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+          if (focusedImgField === "tradeVolume") {
+            readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], tradeVolumeImg: src } })); setIsDirty(true); });
+          } else if (focusedImgField === "watchlist") {
+            readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], watchlistImg: src } })); setIsDirty(true); });
+          } else {
+            readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+          }
+        } else if (selDate && showExpertForm) {
+          readImg(file, src => setExpertImage(src));
         }
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing, expandedId, showExpertForm]);
+  }, [view, showForm, selDate, parsing, expandedId, showExpertForm, focusedImgField]);
 
   const j = selDate ? data[selDate] : null;
 
@@ -187,7 +198,7 @@ export default function App() {
 
   const openDate = date => {
     setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
-    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] } });
+    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], tradeVolumeImg: null, watchlistImg: null, trades: [] } });
   };
 
   const goBack = () => {
@@ -235,7 +246,7 @@ export default function App() {
     const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (!dates.includes(dateStr)) {
       setDates(p => [...p, dateStr].sort((a, b) => b.localeCompare(a)));
-      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] } }));
+      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], tradeVolumeImg: null, watchlistImg: null, trades: [] } }));
     }
     setShowCal(false); openDate(dateStr);
   };
@@ -545,7 +556,7 @@ export default function App() {
 
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
-        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] };
+        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], tradeVolumeImg: null, watchlistImg: null, trades: [] };
         const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
@@ -911,17 +922,41 @@ export default function App() {
           </div>
         </div>
 
-        {/* 오늘의 정리 */}
+        {/* 거래대금 / 관종 */}
         <div style={cardStyle()}>
           <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>📝</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
-            <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+            <span style={{ fontSize: 17 }}>📈</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
+            <span style={{ fontSize: 11, color: T.sub }}>클릭 또는 Ctrl+V로 사진 첨부</span>
           </div>
-          <div style={{ padding: 16 }}>
-            <textarea value={j.todaySummary || ""} onChange={e => upd({ todaySummary: e.target.value })}
-              style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 13 }}
-              placeholder="오늘의 시장 흐름, 내 심리 상태, 잘한 점, 아쉬운 점 등을 자유롭게 적어보세요..." />
+          <div style={{ padding: 16, display: "flex", gap: 12 }}>
+            {[
+              { label: "거래대금", field: "tradeVolumeImg", ref: tradeVolumeRef },
+              { label: "관종",    field: "watchlistImg",  ref: watchlistRef  },
+            ].map(({ label, field, ref }) => (
+              <div key={field} style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>{label}</div>
+                {j[field] ? (
+                  <div style={{ position: "relative" }}>
+                    <img src={j[field]} alt={label} onClick={() => setLightbox(j[field])}
+                      style={{ width: "100%", borderRadius: 8, display: "block", cursor: "zoom-in" }} />
+                    <button onClick={() => { if (!window.confirm(`${label} 사진을 삭제하시겠어요?`)) return; upd({ [field]: null }); }}
+                      style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => ref.current?.click()}
+                    onFocus={() => setFocusedImgField(field === "tradeVolumeImg" ? "tradeVolume" : "watchlist")}
+                    onBlur={() => setFocusedImgField(null)}
+                    onPaste={e => { const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/")); if (item) { e.preventDefault(); readImg(item.getAsFile(), src => { upd({ [field]: src }); }); } }}
+                    tabIndex={0}
+                    style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "28px 10px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub, outline: "none" }}>
+                    🖼️<br />클릭 또는 Ctrl+V
+                  </div>
+                )}
+                <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => { upd({ [field]: src }); }); }} />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1052,7 +1087,7 @@ export default function App() {
                           style={{ position: "absolute", top: 4, right: 4, background: T.red, border: "none", borderRadius: "50%", width: 20, height: 20, color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                       </div>
                     ) : (
-                      <div onClick={() => expertRef.current?.click()} onPaste={e => { const file = Array.from(e.clipboardData.files).find(f => f.type.startsWith("image/")); if (file) readImg(file, src => setExpertImage(src)); }}
+                      <div onClick={() => expertRef.current?.click()} onPaste={e => { const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/")); if (item) { e.preventDefault(); readImg(item.getAsFile(), src => setExpertImage(src)); } }}
                         style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "14px 10px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}
                         tabIndex={0}>
                         🖼️ 클릭 또는 Ctrl+V 로 사진 첨부
@@ -1256,6 +1291,20 @@ export default function App() {
               );
             })}
             {!trades.length && !showForm && <div style={{ textAlign: "center", color: T.sub, padding: "24px 0", fontSize: 13 }}>아직 매매 내역이 없습니다.</div>}
+          </div>
+        </div>
+
+        {/* 오늘의 정리 */}
+        <div style={cardStyle()}>
+          <div style={hdStyle()}>
+            <span style={{ fontSize: 17 }}>📝</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
+            <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+          </div>
+          <div style={{ padding: 16 }}>
+            <textarea value={j.todaySummary || ""} onChange={e => upd({ todaySummary: e.target.value })}
+              style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 13 }}
+              placeholder="오늘의 시장 흐름, 내 심리 상태, 잘한 점, 아쉬운 점 등을 자유롭게 적어보세요..." />
           </div>
         </div>
 
