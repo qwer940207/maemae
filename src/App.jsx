@@ -90,6 +90,8 @@ export default function App() {
   const [editingScIdx, setEditingScIdx] = useState(null);
   const [editingScName, setEditingScName] = useState("");
   const [editingScContent, setEditingScContent] = useState("");
+  const [editingScResultComment, setEditingScResultComment] = useState("");
+  const [scenarioResultInput, setScenarioResultInput] = useState("");
   const [showCal, setShowCal] = useState(false);
   const [calYear, setCalYear] = useState(2026);
   const [calMonth, setCalMonth] = useState(5);
@@ -866,10 +868,16 @@ export default function App() {
                           style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
                           placeholder="진입 조건, 목표가, 손절가, 대응 계획 등" />
                       </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>결과 코멘트 <span style={{ fontWeight: 400, opacity: 0.6 }}>(장 마감 후)</span></label>
+                        <textarea value={editingScResultComment} onChange={e => setEditingScResultComment(e.target.value)}
+                          style={{ ...inp, minHeight: 60, resize: "vertical", lineHeight: 1.7 }}
+                          placeholder="장 마감 후 결과 및 느낀 점..." />
+                      </div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
                           if (editingScContent.trim()) {
-                            updSc({ name: editingScName.trim(), content: editingScContent.trim() });
+                            updSc({ name: editingScName.trim(), content: editingScContent.trim(), resultComment: editingScResultComment.trim() });
                           }
                           setEditingScIdx(null);
                         }}>저장</Btn>
@@ -884,7 +892,7 @@ export default function App() {
                           <span>{scText}</span>
                         </div>
                         <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-                          <button onClick={() => { setEditingScIdx(i); setEditingScName(scName); setEditingScContent(scText); }}
+                          <button onClick={() => { setEditingScIdx(i); setEditingScName(scName); setEditingScContent(scText); setEditingScResultComment(resultComment); }}
                             style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 13, padding: "0 4px", lineHeight: 1 }}>✏️</button>
                           <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })}
                             style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1 }}>×</button>
@@ -897,11 +905,12 @@ export default function App() {
                         <button onClick={() => updSc({ executed: executed === false ? null : false })}
                           style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === false ? T.red : T.inputBd}`, background: executed === false ? "rgba(239,68,68,0.15)" : "transparent", color: executed === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
                       </div>
-                      <textarea
-                        value={resultComment}
-                        onChange={e => updSc({ resultComment: e.target.value })}
-                        style={{ ...inp, minHeight: 56, resize: "vertical", lineHeight: 1.7, fontSize: 12, marginTop: 8 }}
-                        placeholder="결과 코멘트 (장 마감 후)..." />
+                      {resultComment ? (
+                        <div style={{ marginTop: 8, fontSize: 12, color: T.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", background: T.input, borderRadius: 6, padding: "7px 10px", border: `1px solid ${T.border}` }}>
+                          <span style={{ fontSize: 11, color: T.sub, fontWeight: 600, display: "block", marginBottom: 3 }}>결과 코멘트</span>
+                          {resultComment}
+                        </div>
+                      ) : null}
                     </>
                   )}
                 </div>
@@ -922,12 +931,18 @@ export default function App() {
                     style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
                     placeholder="진입 조건, 목표가, 손절가, 대응 계획 등" />
                 </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>결과 코멘트 <span style={{ fontWeight: 400, opacity: 0.6 }}>(장 마감 후)</span></label>
+                  <textarea value={scenarioResultInput} onChange={e => setScenarioResultInput(e.target.value)}
+                    style={{ ...inp, minHeight: 60, resize: "vertical", lineHeight: 1.7 }}
+                    placeholder="장 마감 후 결과 및 느낀 점..." />
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
-                    if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { name: scenarioNameInput.trim(), content: scenarioInput.trim(), executed: null, resultComment: "" }] });
-                    setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false);
+                    if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { name: scenarioNameInput.trim(), content: scenarioInput.trim(), executed: null, resultComment: scenarioResultInput.trim() }] });
+                    setScenarioInput(""); setScenarioNameInput(""); setScenarioResultInput(""); setShowScenarioInput(false);
                   }}>추가</Btn>
-                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false); }}>취소</Btn>
+                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setScenarioNameInput(""); setScenarioResultInput(""); setShowScenarioInput(false); }}>취소</Btn>
                 </div>
               </div>
             )}
