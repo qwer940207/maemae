@@ -49,9 +49,11 @@ const readImg = (file, cb) => {
 };
 
 const T = {
-  bg: "#0d1018", card: "#161b27", card2: "#0f1320", border: "#1e2538",
+  bg: "linear-gradient(160deg, #0b0f1a 0%, #0e1220 60%, #0b0f1a 100%)",
+  card: "#161b27", card2: "#0f1320", border: "#1e2538",
   input: "#191f2e", inputBd: "#263050", tabActive: "#2563eb",
-  text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8"
+  text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8",
+  profit: "#e95c6e", loss: "#5b7cf8",
 };
 const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" };
 
@@ -221,7 +223,7 @@ export default function App() {
     setShowForm(false);
   };
 
-  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, marginBottom: 12, overflow: "hidden", ...e });
+  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, marginBottom: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.25)", ...e });
   const hdStyle = (e = {}) => ({ padding: "13px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8, ...e });
 
   const getTimeLeft = (deletedAt) => {
@@ -416,13 +418,16 @@ export default function App() {
     const top5g = merged.filter(t => t.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
     const top5l = merged.filter(t => t.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
     const recent = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
-    const StatCard = ({ label, value, color }) => (
-      <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: "16px 18px" }}>
-        <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>{label}</div>
-        <div style={{ fontWeight: 800, fontSize: 24, color }}>{value}</div>
+    const StatCard = ({ label, value, color, icon }) => (
+      <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.25)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
+          <div style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{label}</div>
+        </div>
+        <div style={{ fontWeight: 800, fontSize: 28, color, letterSpacing: "-0.5px" }}>{value}</div>
       </div>
     );
-    const Tag = ({ label, pos }) => <span style={{ padding: "2px 7px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: pos ? "#102030" : "#1f1020", color: pos ? T.blue : "#d07070", whiteSpace: "nowrap" }}>{label}</span>;
+    const Tag = ({ label, pos }) => <span style={{ padding: "2px 7px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: pos ? "rgba(233,92,110,0.15)" : "rgba(91,124,248,0.15)", color: pos ? T.profit : T.loss, whiteSpace: "nowrap" }}>{label}</span>;
     const TopItem = ({ t, pos }) => (
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
@@ -430,7 +435,7 @@ export default function App() {
             <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
             <Tag label={t.tagMedium} pos={pos} />
           </div>
-          <span style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
+          <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
         </div>
         <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{t.count > 1 ? `${t.count}번 매매 합산` : fmtDate(t.date)}</div>
       </div>
@@ -462,15 +467,15 @@ export default function App() {
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <StatCard label="총 수익금" value={(totalProfit < 0 ? "-" : "") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.green : T.red} />
-          <StatCard label="승률" value={`${winRate}%`} color={T.text} />
-          <StatCard label="총 자산" value="₩0" color={T.text} />
-          <StatCard label="이번달 수지" value={(monthlyProfit < 0 ? "-" : "") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.green : T.red} />
+          <StatCard icon="💰" label="총 수익금" value={(totalProfit >= 0 ? "+" : "-") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.profit : T.loss} />
+          <StatCard icon="🏆" label="승률" value={`${winRate}%`} color={T.text} />
+          <StatCard icon="🏦" label="총 자산" value="₩0" color={T.text} />
+          <StatCard icon="📅" label="이번달 수지" value={(monthlyProfit >= 0 ? "+" : "-") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.profit : T.loss} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           {[{ title: "수익금 TOP 5", items: top5g, pos: true }, { title: "손실금 TOP 5", items: top5l, pos: false }].map(({ title, items, pos }) => (
             <div key={title} style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: pos ? T.green : T.red, marginBottom: 14 }}>{title}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: pos ? T.profit : T.loss, marginBottom: 14 }}>{title}</div>
               {items.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : items.map((t, i) => <TopItem key={i} t={t} pos={pos} />)}
             </div>
           ))}
@@ -485,8 +490,8 @@ export default function App() {
                 <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{truncName(t.name)}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
-                    <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</div>
+                    <div style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
+                    <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</div>
                   </div>
                 </div>
               );
@@ -687,7 +692,7 @@ export default function App() {
                   {listView !== "일단위" && (
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 4px 8px" }}>
                       <span style={{ fontWeight: 700, fontSize: 14, color: T.blue }}>{fmtGroupLabel(key)}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: groupTotal >= 0 ? T.green : T.red }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: groupTotal >= 0 ? T.profit : T.loss }}>
                         {groupTrades.length}건 · {groupTotal >= 0 ? "+" : "-"}{fmtMoney(groupTotal)}
                       </span>
                     </div>
@@ -698,7 +703,7 @@ export default function App() {
                     const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
                     const tags = [...new Set(trades.map(t => t.tagMedium).filter(Boolean))].slice(0, 4);
                     return (
-                      <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
+                      <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer", borderLeft: trades.length > 0 ? `4px solid ${total >= 0 ? T.profit : T.loss}` : `4px solid ${T.border}` }) }}>
                         <div style={{ padding: "14px 16px" }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tags.length ? 8 : 0 }}>
                             <div>
@@ -708,7 +713,11 @@ export default function App() {
                               </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              {trades.length > 0 && <div style={{ fontWeight: 700, color: total >= 0 ? T.green : T.red, fontSize: 14 }}>{total >= 0 ? "+" : "-"}{fmtMoney(total)}</div>}
+                              {trades.length > 0 && (
+                                <span style={{ padding: "4px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: total >= 0 ? "rgba(233,92,110,0.12)" : "rgba(91,124,248,0.12)", color: total >= 0 ? T.profit : T.loss }}>
+                                  {total >= 0 ? "+" : "-"}{fmtMoney(total)}
+                                </span>
+                              )}
                               <span style={{ color: T.sub, fontSize: 18 }}>›</span>
                             </div>
                           </div>
@@ -973,7 +982,7 @@ export default function App() {
                 setExpandedId(null);
               };
               return (
-                <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8, overflow: "hidden" }}>
+                <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, borderLeft: `4px solid ${pos ? T.profit : T.loss}`, marginBottom: 8, overflow: "hidden" }}>
                   <div onClick={() => { setExpandedId(exp ? null : trade.id); if (!exp) setEditForms(p => ({ ...p, [trade.id]: { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" } })); }} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
@@ -984,8 +993,8 @@ export default function App() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.green : T.red }}>{fmtMoney(trade.profit)}</div>
-                        <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{trade.returnRate}%</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.profit : T.loss }}>{fmtMoney(trade.profit)}</div>
+                        <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{trade.returnRate}%</div>
                       </div>
                       <span style={{ color: T.sub, fontSize: 11, display: "inline-block", transform: exp ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
                     </div>
@@ -1236,7 +1245,7 @@ export default function App() {
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: T.sub, marginBottom: 2 }}>손익</div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.green : T.red }}>{pos ? "+" : "-"}{fmtMoney(stat.profit)}</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.profit : T.loss }}>{pos ? "+" : "-"}{fmtMoney(stat.profit)}</div>
                       </div>
                     </div>
                     <div style={{ marginTop: 10 }}>
@@ -1269,10 +1278,10 @@ export default function App() {
             <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
             <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
           </div>
-          <div style={{ display: "flex", gap: 2, overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
             {NAV_TABS.map(t => (
               <button key={t.id} onClick={() => { setTab(t.id); if (t.id === "매매일지") setView("list"); }}
-                style={{ padding: "8px 12px", borderRadius: "8px 8px 0 0", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#fff" : T.sub, background: tab === t.id ? T.tabActive : "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                style={{ padding: "10px 16px", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#fff" : T.sub, background: "transparent", border: "none", borderBottom: tab === t.id ? `2px solid ${T.tabActive}` : "2px solid transparent", marginBottom: -1, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "color 0.2s" }}>
                 {t.icon} {t.id}
               </button>
             ))}
