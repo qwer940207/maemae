@@ -11,20 +11,25 @@ const storage = {
     } catch { return null; }
   },
   set: async (value) => {
-    try {
-      await supabase.from("maemae").upsert({ id: DB_ID, data: value });
-    } catch {}
+    const { error } = await supabase.from("maemae").upsert({ id: DB_ID, data: value });
+    if (error) throw new Error(error.message);
   },
 };
 
-const LARGE_TAGS = ["양봉", "음봉", "횡보", "기타"];
+const LARGE_TAGS = ["종배", "시초매매", "장중매매", "스윙"];
 const MEDIUM_TAGS = {
-  "양봉": ["양봉종배", "양봉도지", "양봉역망치", "갭상승", "투매", "상따", "기타"],
-  "음봉": ["음봉종배", "음봉도지", "음봉망치", "갭하락", "1음봉", "연상상따", "1상승상따", "기타"],
-  "횡보": ["횡보박스", "삼각수렴", "기타"],
-  "기타": ["기타"]
+  "종배": ["상따", "양봉", "음봉", "기타"],
+  "시초매매": [],
+  "장중매매": [],
+  "스윙": [],
 };
-const SMALL_TAGS = ["소분류 없음", "단타", "스윙", "중기", "장기"];
+const SMALL_TAGS = {
+  "종배": [],
+  "시초매매": [],
+  "장중매매": [],
+  "스윙": [],
+};
+const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
   { id: "매매일지", icon: "📋" },
@@ -45,15 +50,18 @@ const readImg = (file, cb) => {
   if (!file?.type.startsWith("image/")) return;
   const r = new FileReader();
   r.onload = e => cb(e.target.result);
+  r.onerror = () => console.error("이미지를 읽는 중 오류가 발생했습니다.");
   r.readAsDataURL(file);
 };
 
 const T = {
-  bg: "#0d1018", card: "#161b27", card2: "#0f1320", border: "#1e2538",
+  bg: "linear-gradient(160deg, #0b0f1a 0%, #0e1220 60%, #0b0f1a 100%)",
+  card: "#161b27", card2: "#0f1320", border: "#1e2538",
   input: "#191f2e", inputBd: "#263050", tabActive: "#2563eb",
-  text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8"
+  text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8",
+  profit: "#e95c6e", loss: "#5b7cf8",
 };
-const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" };
+const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, fontWeight: 600, outline: "none", width: "100%", boxSizing: "border-box" };
 
 const Btn = ({ variant = "primary", style: s = {}, children, ...rest }) => (
   <button style={{
@@ -74,10 +82,11 @@ export default function App() {
   const [kakaoOpen, setKakaoOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
+  const [scenarioNameInput, setScenarioNameInput] = useState("");
   const [showCal, setShowCal] = useState(false);
   const [calYear, setCalYear] = useState(2026);
   const [calMonth, setCalMonth] = useState(5);
@@ -88,6 +97,8 @@ export default function App() {
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
+  const [listView, setListView] = useState("일단위");
+  const [listSearch, setListSearch] = useState("");
   const [dashPeriod, setDashPeriod] = useState("전체");
   const [dashStart, setDashStart] = useState("");
   const [dashEnd, setDashEnd] = useState("");
@@ -95,6 +106,8 @@ export default function App() {
   const [dashCalYear, setDashCalYear] = useState(new Date().getFullYear());
   const [dashCalMonth, setDashCalMonth] = useState(new Date().getMonth());
   const [editForms, setEditForms] = useState({});
+  const [formChartIdx, setFormChartIdx] = useState(0);
+  const [editChartIdx, setEditChartIdx] = useState({});
   const editChartRef = useRef(null);
   const [lightbox, setLightbox] = useState(null);
   const [selectedKakaoImg, setSelectedKakaoImg] = useState(0);
@@ -122,7 +135,7 @@ export default function App() {
               Object.entries(p.trash).filter(([, v]) => now - v.deletedAt < THREE_DAYS_MS)
             );
             setTrash(cleaned);
-            if (Object.keys(cleaned).length !== Object.keys(p.trash).length) {
+            if (Object.keys(cleaned).length !== Object.keys(p.trash).length && p.data && p.dates) {
               await storage.set({ data: p.data, dates: p.dates, trash: cleaned });
             }
           }
@@ -140,21 +153,29 @@ export default function App() {
       if (view === "list") {
         handleImportImage(file);
       } else if (view === "journal") {
-        if (showForm) readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
-        else readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+        if (showForm) {
+          readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
+        } else if (expandedId !== null) {
+          readImg(file, src => setEditForms(p => ({
+            ...p,
+            [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
+          })));
+        } else if (selDate) {
+          readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+        }
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing]);
+  }, [view, showForm, selDate, parsing, expandedId]);
 
   const j = selDate ? data[selDate] : null;
 
   const save = async (d, dl, tr) => {
-    try { await storage.set({ data: d, dates: dl, trash: tr }); } catch {}
+    await storage.set({ data: d, dates: dl, trash: tr });
   };
 
-  const upd = u => { setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
+  const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
 
   const openDate = date => {
     setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
@@ -175,31 +196,31 @@ export default function App() {
   };
 
   // 휴지통으로 이동
-  const deleteDate = () => {
+  const deleteDate = async () => {
     const journalData = data[selDate];
     const newDates = dates.filter(d => d !== selDate);
     const newData = { ...data }; delete newData[selDate];
     const newTrash = { ...trash, [selDate]: { deletedAt: Date.now(), journal: journalData } };
     setDates(newDates); setData(newData); setTrash(newTrash);
     setShowDeleteConfirm(false); setView("list"); setIsDirty(false);
-    save(newData, newDates, newTrash);
+    try { await save(newData, newDates, newTrash); } catch { alert("삭제 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
   };
 
   // 복원
-  const restoreDate = (date) => {
+  const restoreDate = async (date) => {
     const item = trash[date];
     const newDates = [...dates, date].sort((a, b) => b.localeCompare(a));
     const newData = { ...data, [date]: item.journal };
     const newTrash = { ...trash }; delete newTrash[date];
     setDates(newDates); setData(newData); setTrash(newTrash);
-    save(newData, newDates, newTrash);
+    try { await save(newData, newDates, newTrash); } catch { alert("복원 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
   };
 
   // 영구 삭제
-  const permanentDelete = (date) => {
+  const permanentDelete = async (date) => {
     const newTrash = { ...trash }; delete newTrash[date];
     setTrash(newTrash); setConfirmPermDelete(null);
-    save(data, dates, newTrash);
+    try { await save(data, dates, newTrash); } catch { alert("삭제 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
   };
 
   const selectCalDate = (y, m, d) => {
@@ -213,12 +234,13 @@ export default function App() {
 
   const saveTrade = () => {
     if (!form.name.trim()) return;
-    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
+    setFormChartIdx(0);
     setShowForm(false);
   };
 
-  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, marginBottom: 12, overflow: "hidden", ...e });
+  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, marginBottom: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.25)", ...e });
   const hdStyle = (e = {}) => ({ padding: "13px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8, ...e });
 
   const getTimeLeft = (deletedAt) => {
@@ -237,7 +259,7 @@ export default function App() {
     const firstDow = new Date(calYear, calMonth, 1).getDay();
     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
     const prevDays = new Date(calYear, calMonth, 0).getDate();
-    const today = "2026-06-01";
+    const today = new Date().toISOString().slice(0, 10);
     const cells = [];
     for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, type: "prev" });
     for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: "cur" });
@@ -413,13 +435,16 @@ export default function App() {
     const top5g = merged.filter(t => t.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
     const top5l = merged.filter(t => t.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
     const recent = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
-    const StatCard = ({ label, value, color }) => (
-      <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: "16px 18px" }}>
-        <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>{label}</div>
-        <div style={{ fontWeight: 800, fontSize: 24, color }}>{value}</div>
+    const StatCard = ({ label, value, color, icon }) => (
+      <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.25)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
+          <div style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{label}</div>
+        </div>
+        <div style={{ fontWeight: 800, fontSize: 28, color, letterSpacing: "-0.5px" }}>{value}</div>
       </div>
     );
-    const Tag = ({ label, pos }) => <span style={{ padding: "2px 7px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: pos ? "#102030" : "#1f1020", color: pos ? T.blue : "#d07070", whiteSpace: "nowrap" }}>{label}</span>;
+    const Tag = ({ label, pos }) => <span style={{ padding: "2px 7px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: pos ? "rgba(233,92,110,0.15)" : "rgba(91,124,248,0.15)", color: pos ? T.profit : T.loss, whiteSpace: "nowrap" }}>{label}</span>;
     const TopItem = ({ t, pos }) => (
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
@@ -427,7 +452,7 @@ export default function App() {
             <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
             <Tag label={t.tagMedium} pos={pos} />
           </div>
-          <span style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
+          <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
         </div>
         <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{t.count > 1 ? `${t.count}번 매매 합산` : fmtDate(t.date)}</div>
       </div>
@@ -459,15 +484,15 @@ export default function App() {
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <StatCard label="총 수익금" value={(totalProfit < 0 ? "-" : "") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.green : T.red} />
-          <StatCard label="승률" value={`${winRate}%`} color={T.text} />
-          <StatCard label="총 자산" value="₩0" color={T.text} />
-          <StatCard label="이번달 수지" value={(monthlyProfit < 0 ? "-" : "") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.green : T.red} />
+          <StatCard icon="💰" label="총 수익금" value={(totalProfit >= 0 ? "+" : "-") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.profit : T.loss} />
+          <StatCard icon="🏆" label="승률" value={`${winRate}%`} color={T.text} />
+          <StatCard icon="🏦" label="총 자산" value="₩0" color={T.text} />
+          <StatCard icon="📅" label="이번달 수지" value={(monthlyProfit >= 0 ? "+" : "-") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.profit : T.loss} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           {[{ title: "수익금 TOP 5", items: top5g, pos: true }, { title: "손실금 TOP 5", items: top5l, pos: false }].map(({ title, items, pos }) => (
             <div key={title} style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: pos ? T.green : T.red, marginBottom: 14 }}>{title}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: pos ? T.profit : T.loss, marginBottom: 14 }}>{title}</div>
               {items.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : items.map((t, i) => <TopItem key={i} t={t} pos={pos} />)}
             </div>
           ))}
@@ -477,13 +502,13 @@ export default function App() {
           {recent.length === 0
             ? <div style={{ padding: "32px", textAlign: "center", color: T.sub, fontSize: 13 }}>매매 내역이 없습니다.<br /><span style={{ fontSize: 11, marginTop: 4, display: "block" }}>매매일지에서 종목을 추가해보세요.</span></div>
             : recent.map((t, i) => {
-              const pos = t.returnRate >= 0;
+              const pos = (t.returnRate ?? 0) >= 0;
               return (
                 <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{truncName(t.name)}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 700, color: pos ? T.green : T.red, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
-                    <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</div>
+                    <div style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
+                    <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{(t.returnRate ?? 0).toFixed(2)}%</div>
                   </div>
                 </div>
               );
@@ -513,13 +538,17 @@ export default function App() {
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
         const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] };
-        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "기타", tagMedium: "기타", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" }));
+        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
         setData(newData);
         await save(newData, newDates, trash);
         setParseMsg(`✓ ${json.trades.length}건 추가됨`);
-        setTimeout(() => { closeImportModal(); openDate(dateStr); }, 1200);
+        setTimeout(() => {
+          if (isDirty && !window.confirm("저장하지 않은 내용이 있어요.\n저장하지 않고 이동할까요?")) return;
+          closeImportModal();
+          openDate(dateStr);
+        }, 1200);
       } catch (e) {
         setParseMsg("분석 실패 ✕");
         setTimeout(() => { setParseMsg(""); setImportPreview(null); setImportFile(null); }, 2500);
@@ -593,41 +622,146 @@ export default function App() {
   };
 
   // ──────────── LIST ────────────
-  const renderList = () => (
-    <div style={{ padding: "14px 12px" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
-        <button onClick={() => setShowTrash(true)}
-          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
-        </button>
-        <button onClick={() => setShowImportModal(true)} disabled={parsing}
-          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          📷 {parseMsg || "사진"}
-        </button>
-        <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) { handleImportImage(e.target.files[0]); setShowImportModal(false); } e.target.value = ""; }} />
-        <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
+  const renderList = () => {
+    // 검색 필터
+    const filteredDates = dates.filter(date => {
+      if (!listSearch.trim()) return true;
+      const q = listSearch.toLowerCase();
+      const d = data[date] || {};
+      if (fmtDate(date).includes(q) || date.includes(q)) return true;
+      if ((d.trades || []).some(t =>
+        t.name?.toLowerCase().includes(q) ||
+        t.tagLarge?.toLowerCase().includes(q) ||
+        t.tagMedium?.toLowerCase().includes(q) ||
+        t.reason?.toLowerCase().includes(q) ||
+        t.reflection?.toLowerCase().includes(q)
+      )) return true;
+      if (d.teacherComment?.toLowerCase().includes(q)) return true;
+      return false;
+    });
+
+    // 주 시작일(월요일) 구하기
+    const getWeekKey = dateStr => {
+      const d = new Date(dateStr);
+      const dow = d.getDay();
+      const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      return mon.toISOString().slice(0,10) + "~" + sun.toISOString().slice(0,10);
+    };
+
+    // 그룹핑
+    const groups = {};
+    filteredDates.forEach(date => {
+      const key = listView === "주단위" ? getWeekKey(date) : listView === "월단위" ? date.slice(0,7) : date;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(date);
+    });
+    const groupKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+    const fmtGroupLabel = key => {
+      if (listView === "주단위") {
+        const [s, e] = key.split("~");
+        const [sy,sm,sd] = s.split("-"); const [ey,em,ed] = e.split("-");
+        return sy === ey
+          ? `${sy}년 ${+sm}월 ${+sd}일 ~ ${+em}월 ${+ed}일`
+          : `${sy}년 ${+sm}월 ${+sd}일 ~ ${ey}년 ${+em}월 ${+ed}일`;
+      }
+      if (listView === "월단위") { const [y,m] = key.split("-"); return `${y}년 ${+m}월`; }
+      return fmtDate(key);
+    };
+
+    return (
+      <div style={{ padding: "14px 12px" }}>
+        {/* 일/주/월 탭 */}
+        <div style={{ display: "flex", background: T.card, borderRadius: 10, padding: 4, marginBottom: 12, border: `1px solid ${T.border}` }}>
+          {["일단위", "주단위", "월단위"].map(v => (
+            <button key={v} onClick={() => setListView(v)}
+              style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600, fontSize: 14, background: listView === v ? T.tabActive : "transparent", color: listView === v ? "#fff" : T.sub, transition: "background 0.2s" }}>
+              {v}
+            </button>
+          ))}
+        </div>
+
+        {/* 검색 */}
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.sub, fontSize: 14, pointerEvents: "none" }}>🔍</span>
+          <input value={listSearch} onChange={e => setListSearch(e.target.value)}
+            style={{ ...inp, paddingLeft: 36 }} placeholder="날짜, 종목명, 태그, 매매이유, 코멘트 검색..." />
+        </div>
+
+        {/* 버튼 */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => setShowTrash(true)}
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
+          </button>
+          <button onClick={() => setShowImportModal(true)} disabled={parsing}
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            📷 {parseMsg || "사진"}
+          </button>
+          <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) { handleImportImage(e.target.files[0]); setShowImportModal(false); } e.target.value = ""; }} />
+          <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
+        </div>
+
+        {/* 목록 */}
+        {filteredDates.length === 0
+          ? <div style={{ textAlign: "center", color: T.sub, padding: "40px 0", fontSize: 13 }}>{listSearch ? "검색 결과가 없어요." : "일지가 없습니다."}</div>
+          : groupKeys.map(key => {
+              const datesInGroup = groups[key];
+              const groupTrades = datesInGroup.flatMap(d => data[d]?.trades || []);
+              const groupTotal = groupTrades.reduce((s, t) => s + (t.profit || 0), 0);
+              return (
+                <div key={key}>
+                  {listView !== "일단위" && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 4px 8px" }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: T.blue }}>{fmtGroupLabel(key)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: groupTotal >= 0 ? T.profit : T.loss }}>
+                        {groupTrades.length}건 · {groupTotal >= 0 ? "+" : "-"}{fmtMoney(groupTotal)}
+                      </span>
+                    </div>
+                  )}
+                  {datesInGroup.map(date => {
+                    const d = data[date] || {};
+                    const trades = d.trades || [];
+                    const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
+                    const tags = [...new Set(trades.map(t => t.tagMedium).filter(Boolean))].slice(0, 4);
+                    return (
+                      <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
+                        <div style={{ padding: "16px 18px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tags.length ? 10 : 0 }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 5 }}>{fmtDate(date)} ({fmtW(date)})</div>
+                              <div style={{ fontSize: 13, color: T.sub }}>
+                                종목 {trades.length}건{d.kakaoImages?.length > 0 ? ` · 카톡 ${d.kakaoImages.length}장` : ""}{d.teacherComment ? " · 코멘트 있음" : ""}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              {trades.length > 0 && (
+                                <div style={{ fontWeight: 700, color: total >= 0 ? T.profit : T.loss, fontSize: 15 }}>
+                                  {total >= 0 ? "+" : "-"}{fmtMoney(total)}
+                                </div>
+                              )}
+                              <span style={{ color: T.sub, fontSize: 18 }}>›</span>
+                            </div>
+                          </div>
+                          {tags.length > 0 && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {tags.map(tag => (
+                                <span key={tag} style={{ padding: "3px 9px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue }}>{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+        }
       </div>
-      {dates.map(date => {
-        const d = data[date] || {};
-        const trades = d.trades || [];
-        const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
-        return (
-          <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
-            <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 3 }}>{fmtDate(date)} ({fmtW(date)})</div>
-                <div style={{ fontSize: 12, color: T.sub }}>매매 {trades.length}건{d.scenarios?.length > 0 ? ` · 시나리오 ${d.scenarios.length}개` : ""}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {trades.length > 0 && <div style={{ fontWeight: 700, color: total >= 0 ? T.green : T.red, fontSize: 14 }}>{total >= 0 ? "+" : "-"}{fmtMoney(total)}</div>}
-                <span style={{ color: T.sub, fontSize: 18 }}>›</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+    );
+  };
 
   // ──────────── JOURNAL ────────────
   const renderJournal = () => {
@@ -651,19 +785,44 @@ export default function App() {
             <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
           </div>
           <div style={{ padding: 16 }}>
-            {!j.scenarios?.length && !showScenarioInput && <p style={{ color: T.sub, fontSize: 13, textAlign: "center", margin: "6px 0 12px" }}>아직 작성한 시나리오가 없습니다.</p>}
+            {/* 시장분석 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>시장분석</div>
+              <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>전일 시장상황 내 생각 · 오늘 예상 시장상황을 함께 적어 주세요.</div>
+              <textarea
+                value={j.marketAnalysis || ""}
+                onChange={e => upd({ marketAnalysis: e.target.value })}
+                style={{ ...inp, minHeight: 90, resize: "vertical", lineHeight: 1.7, fontSize: 13 }}
+                placeholder="예) 어제는 금리 우려로 기술주 약세, 오늘은 반동 시도 예상 but 거래량 부족 우려..."
+              />
+            </div>
+
+            {/* 시나리오 목록 */}
+            {!j.scenarios?.length && !showScenarioInput && (
+              <p style={{ color: T.sub, fontSize: 13, marginBottom: 12 }}>아직 작성한 시나리오가 없습니다.</p>
+            )}
             {j.scenarios?.map((sc, i) => {
-              const text = typeof sc === "string" ? sc : sc.text;
+              const scName = typeof sc === "object" ? (sc.name || "") : "";
+              const scText = typeof sc === "string" ? sc : (sc.content || sc.text || "");
               const executed = typeof sc === "object" ? sc.executed : false;
               const correct = typeof sc === "object" ? sc.correct : false;
               const updSc = (patch) => {
-                const next = j.scenarios.map((s, k) => k !== i ? s : { text: typeof s === "string" ? s : s.text, executed: typeof s === "object" ? s.executed : false, correct: typeof s === "object" ? s.correct : false, ...patch });
+                const next = j.scenarios.map((s, k) => k !== i ? s : {
+                  name: typeof s === "object" ? (s.name || "") : "",
+                  content: typeof s === "string" ? s : (s.content || s.text || ""),
+                  executed: typeof s === "object" ? s.executed : false,
+                  correct: typeof s === "object" ? s.correct : false,
+                  ...patch
+                });
                 upd({ scenarios: next });
               };
               return (
                 <div key={i} style={{ background: T.card2, borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontSize: 13, color: T.text, lineHeight: 1.6 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <span style={{ flex: 1 }}>{text}</span>
+                    <div style={{ flex: 1 }}>
+                      {scName && <div style={{ fontWeight: 700, fontSize: 13, color: T.blue, marginBottom: 4 }}>{scName}</div>}
+                      <span>{scText}</span>
+                    </div>
                     <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", marginLeft: 8, lineHeight: 1 }}>×</button>
                   </div>
                   <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
@@ -679,16 +838,35 @@ export default function App() {
                 </div>
               );
             })}
+
+            {/* 시나리오 입력 폼 */}
             {showScenarioInput && (
               <div style={{ marginBottom: 10 }}>
-                <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)} style={{ ...inp, minHeight: 70, resize: "vertical", marginBottom: 8 }} placeholder="시나리오를 입력하세요..." autoFocus />
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>종목명</label>
+                  <input value={scenarioNameInput} onChange={e => setScenarioNameInput(e.target.value)}
+                    style={inp} placeholder="예: 삼성전자" autoFocus />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>시나리오 내용</label>
+                  <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)}
+                    style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
+                    placeholder="진입 조건, 목표가, 손절가, 대응 계획 등" />
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { text: scenarioInput.trim(), executed: false, correct: false }] }); setScenarioInput(""); setShowScenarioInput(false); }}>추가</Btn>
-                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setShowScenarioInput(false); }}>취소</Btn>
+                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                    if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { name: scenarioNameInput.trim(), content: scenarioInput.trim(), executed: false, correct: false }] });
+                    setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false);
+                  }}>추가</Btn>
+                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false); }}>취소</Btn>
                 </div>
               </div>
             )}
-            {!showScenarioInput && <button onClick={() => setShowScenarioInput(true)} style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 8, width: "100%", padding: "12px", color: T.sub, fontSize: 13, cursor: "pointer" }}>+ 시나리오 추가</button>}
+            {!showScenarioInput && (
+              <button onClick={() => setShowScenarioInput(true)} style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 8, width: "100%", padding: "12px", color: T.sub, fontSize: 13, cursor: "pointer" }}>
+                + 시나리오 추가
+              </button>
+            )}
           </div>
         </div>
 
@@ -715,7 +893,7 @@ export default function App() {
                         <div key={i} style={{ position: "relative", flexShrink: 0 }}>
                           <img src={img} alt="" onClick={() => setSelectedKakaoImg(i)}
                             style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: selectedKakaoImg === i ? `2px solid ${T.blue}` : `2px solid transparent`, opacity: selectedKakaoImg === i ? 1 : 0.6 }} />
-                          <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(Math.max(0, i - 1)); }}
+                          <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(imgs.length === 0 ? 0 : Math.min(selectedKakaoImg, imgs.length - 1)); }}
                             style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                         </div>
                       ))}
@@ -789,12 +967,29 @@ export default function App() {
                 ))}
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대 → 중 → 소)</label>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대분류 → 중분류 → 소분류)</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
-                  <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
-                  <select style={inp} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))}>{(MEDIUM_TAGS[form.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
-                  <select style={inp} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
-                  <Btn style={{ padding: "10px 14px" }}>추가</Btn>
+                  <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "", tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                  <select style={{ ...inp, color: (MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? T.sub : T.text }} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))} disabled={(MEDIUM_TAGS[form.tagLarge] || []).length === 0}>
+                    {(MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? <option value="">-</option> : (MEDIUM_TAGS[form.tagLarge]).map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  <select style={{ ...inp, color: (SMALL_TAGS[form.tagLarge] || []).length === 0 ? T.sub : T.text }} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))} disabled={(SMALL_TAGS[form.tagLarge] || []).length === 0}>
+                    {(SMALL_TAGS[form.tagLarge] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[form.tagLarge]).map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  <Btn style={{ padding: "10px 14px" }} onClick={saveTrade}>추가</Btn>
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>손실 이유</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {LOSS_REASONS.map(r => (
+                    <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                      <input type="checkbox" checked={form.lossReasons.includes(r)}
+                        onChange={() => setForm(p => ({ ...p, lossReasons: p.lossReasons.includes(r) ? p.lossReasons.filter(x => x !== r) : [...p.lossReasons, r] }))}
+                        style={{ accentColor: T.loss, width: 13, height: 13 }} />
+                      <span style={{ color: form.lossReasons.includes(r) ? T.loss : T.sub }}>{r}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
@@ -805,13 +1000,20 @@ export default function App() {
                 </div>
                 <input ref={chartRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] }))))} />
                 {form.chartImages.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                    {form.chartImages.map((img, i) => (
-                      <div key={i} style={{ position: "relative" }}>
-                        <img src={img} alt="" style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6 }} />
-                        <button onClick={() => setForm(p => ({ ...p, chartImages: p.chartImages.filter((_, j) => j !== i) }))} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
-                      </div>
-                    ))}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
+                      {form.chartImages.map((img, i) => (
+                        <div key={i} style={{ position: "relative", flexShrink: 0 }}>
+                          <img src={img} alt="" onClick={() => setFormChartIdx(i)}
+                            style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: formChartIdx === i ? `2px solid ${T.tabActive}` : "2px solid transparent", opacity: formChartIdx === i ? 1 : 0.6 }} />
+                          <button onClick={() => { setForm(p => ({ ...p, chartImages: p.chartImages.filter((_, j) => j !== i) })); setFormChartIdx(prev => Math.min(prev, form.chartImages.length - 2)); }}
+                            style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                    <img src={form.chartImages[formChartIdx] ?? form.chartImages[0]} alt=""
+                      onClick={() => setLightbox(form.chartImages[formChartIdx] ?? form.chartImages[0])}
+                      style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
                   </div>
                 )}
               </div>
@@ -824,10 +1026,10 @@ export default function App() {
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
-              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
-              const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...ef, ...patch } }));
+              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "종배", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
+              const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...(p[trade.id] ?? ef), ...patch } }));
               const savEdit = () => {
-                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
+                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, lossReasons: ef.lossReasons, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
                 upd({ trades: trades.map(t => t.id === trade.id ? updated : t) });
                 setExpandedId(null);
               };
@@ -843,8 +1045,8 @@ export default function App() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.green : T.red }}>{fmtMoney(trade.profit)}</div>
-                        <div style={{ fontSize: 12, color: pos ? T.green : T.red }}>{pos ? "+" : ""}{trade.returnRate}%</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.profit : T.loss }}>{fmtMoney(trade.profit)}</div>
+                        <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{trade.returnRate}%</div>
                       </div>
                       <span style={{ color: T.sub, fontSize: 11, display: "inline-block", transform: exp ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
                     </div>
@@ -857,23 +1059,47 @@ export default function App() {
                         ))}
                       </div>
                       <div style={{ marginBottom: 12 }}>
-                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대 → 중 → 소)</label>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대분류 → 중분류 → 소분류)</label>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                          <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
-                          <select style={inp} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value })}>{(MEDIUM_TAGS[ef.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
-                          <select style={inp} value={ef.tagSmall} onChange={e => setEf({ tagSmall: e.target.value })}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                          <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "", tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                          <select style={{ ...inp, color: (MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? T.sub : T.text }} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value })} disabled={(MEDIUM_TAGS[ef.tagLarge] || []).length === 0}>
+                            {(MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? <option value="">-</option> : (MEDIUM_TAGS[ef.tagLarge]).map(t => <option key={t}>{t}</option>)}
+                          </select>
+                          <select style={{ ...inp, color: (SMALL_TAGS[ef.tagLarge] || []).length === 0 ? T.sub : T.text }} value={ef.tagSmall} onChange={e => setEf({ tagSmall: e.target.value })} disabled={(SMALL_TAGS[ef.tagLarge] || []).length === 0}>
+                            {(SMALL_TAGS[ef.tagLarge] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[ef.tagLarge]).map(t => <option key={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>손실 이유</label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {LOSS_REASONS.map(r => (
+                            <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                              <input type="checkbox" checked={(ef.lossReasons || []).includes(r)}
+                                onChange={() => setEf({ lossReasons: (ef.lossReasons || []).includes(r) ? ef.lossReasons.filter(x => x !== r) : [...(ef.lossReasons || []), r] })}
+                                style={{ accentColor: T.loss, width: 13, height: 13 }} />
+                              <span style={{ color: (ef.lossReasons || []).includes(r) ? T.loss : T.sub }}>{r}</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
                         {ef.chartImages.length > 0 && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                            {ef.chartImages.map((img, i) => (
-                              <div key={i} style={{ position: "relative" }}>
-                                <img src={img} alt="" onClick={() => setLightbox(img)} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }} />
-                                <button onClick={() => setEf({ chartImages: ef.chartImages.filter((_, k) => k !== i) })} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
-                              </div>
-                            ))}
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
+                              {ef.chartImages.map((img, i) => (
+                                <div key={i} style={{ position: "relative", flexShrink: 0 }}>
+                                  <img src={img} alt="" onClick={() => setEditChartIdx(p => ({ ...p, [trade.id]: i }))}
+                                    style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: (editChartIdx[trade.id] ?? 0) === i ? `2px solid ${T.tabActive}` : "2px solid transparent", opacity: (editChartIdx[trade.id] ?? 0) === i ? 1 : 0.6 }} />
+                                  <button onClick={() => { setEf({ chartImages: ef.chartImages.filter((_, k) => k !== i) }); setEditChartIdx(p => ({ ...p, [trade.id]: Math.min(p[trade.id] ?? 0, ef.chartImages.length - 2) })); }}
+                                    style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                                </div>
+                              ))}
+                            </div>
+                            <img src={ef.chartImages[editChartIdx[trade.id] ?? 0] ?? ef.chartImages[0]} alt=""
+                              onClick={() => setLightbox(ef.chartImages[editChartIdx[trade.id] ?? 0] ?? ef.chartImages[0])}
+                              style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
                           </div>
                         )}
                         <div onClick={() => editChartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "14px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}>
@@ -931,7 +1157,7 @@ export default function App() {
     const allScenarios = [];
     dates.forEach(date => {
       (data[date]?.scenarios || []).forEach(sc => {
-        const text = typeof sc === "string" ? sc : sc.text;
+        const text = typeof sc === "string" ? sc : (sc.content || sc.text || "");
         const executed = typeof sc === "object" ? sc.executed : false;
         const correct = typeof sc === "object" ? sc.correct : false;
         allScenarios.push({ date, text, executed, correct });
@@ -1095,7 +1321,7 @@ export default function App() {
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: T.sub, marginBottom: 2 }}>손익</div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.green : T.red }}>{pos ? "+" : "-"}{fmtMoney(stat.profit)}</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: pos ? T.profit : T.loss }}>{pos ? "+" : "-"}{fmtMoney(stat.profit)}</div>
                       </div>
                     </div>
                     <div style={{ marginTop: 10 }}>
@@ -1123,22 +1349,22 @@ export default function App() {
         </div>
       )}
       <div style={{ borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ padding: "14px 16px 0" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "14px 16px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
             <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
             <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
           </div>
-          <div style={{ display: "flex", gap: 2, overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
             {NAV_TABS.map(t => (
               <button key={t.id} onClick={() => { setTab(t.id); if (t.id === "매매일지") setView("list"); }}
-                style={{ padding: "8px 12px", borderRadius: "8px 8px 0 0", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#fff" : T.sub, background: tab === t.id ? T.tabActive : "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                style={{ padding: "10px 16px", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#fff" : T.sub, background: "transparent", border: "none", borderBottom: tab === t.id ? `2px solid ${T.tabActive}` : "2px solid transparent", marginBottom: -1, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "color 0.2s" }}>
                 {t.icon} {t.id}
               </button>
             ))}
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
         {tab === "대시보드" && renderDashboard()}
         {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
         {tab === "매매분석" && renderAnalysis()}
