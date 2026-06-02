@@ -55,7 +55,7 @@ const T = {
   text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8",
   profit: "#e95c6e", loss: "#5b7cf8",
 };
-const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" };
+const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, fontWeight: 600, outline: "none", width: "100%", boxSizing: "border-box" };
 
 const Btn = ({ variant = "primary", style: s = {}, children, ...rest }) => (
   <button style={{
@@ -1273,7 +1273,7 @@ export default function App() {
         </div>
       )}
       <div style={{ borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 16px 0" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "14px 16px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
             <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
             <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
@@ -1288,7 +1288,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
         {tab === "대시보드" && renderDashboard()}
         {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
         {tab === "매매분석" && renderAnalysis()}
