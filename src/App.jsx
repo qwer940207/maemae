@@ -78,6 +78,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
+  const [scenarioNameInput, setScenarioNameInput] = useState("");
   const [showCal, setShowCal] = useState(false);
   const [calYear, setCalYear] = useState(2026);
   const [calMonth, setCalMonth] = useState(5);
@@ -752,19 +753,44 @@ export default function App() {
             <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
           </div>
           <div style={{ padding: 16 }}>
-            {!j.scenarios?.length && !showScenarioInput && <p style={{ color: T.sub, fontSize: 13, textAlign: "center", margin: "6px 0 12px" }}>아직 작성한 시나리오가 없습니다.</p>}
+            {/* 시장분석 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>시장분석</div>
+              <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>전일 시장상황 내 생각 · 오늘 예상 시장상황을 함께 적어 주세요.</div>
+              <textarea
+                value={j.marketAnalysis || ""}
+                onChange={e => upd({ marketAnalysis: e.target.value })}
+                style={{ ...inp, minHeight: 90, resize: "vertical", lineHeight: 1.7, fontSize: 13 }}
+                placeholder="예) 어제는 금리 우려로 기술주 약세, 오늘은 반동 시도 예상 but 거래량 부족 우려..."
+              />
+            </div>
+
+            {/* 시나리오 목록 */}
+            {!j.scenarios?.length && !showScenarioInput && (
+              <p style={{ color: T.sub, fontSize: 13, marginBottom: 12 }}>아직 작성한 시나리오가 없습니다.</p>
+            )}
             {j.scenarios?.map((sc, i) => {
-              const text = typeof sc === "string" ? sc : sc.text;
+              const scName = typeof sc === "object" ? (sc.name || "") : "";
+              const scText = typeof sc === "string" ? sc : (sc.content || sc.text || "");
               const executed = typeof sc === "object" ? sc.executed : false;
               const correct = typeof sc === "object" ? sc.correct : false;
               const updSc = (patch) => {
-                const next = j.scenarios.map((s, k) => k !== i ? s : { text: typeof s === "string" ? s : s.text, executed: typeof s === "object" ? s.executed : false, correct: typeof s === "object" ? s.correct : false, ...patch });
+                const next = j.scenarios.map((s, k) => k !== i ? s : {
+                  name: typeof s === "object" ? (s.name || "") : "",
+                  content: typeof s === "string" ? s : (s.content || s.text || ""),
+                  executed: typeof s === "object" ? s.executed : false,
+                  correct: typeof s === "object" ? s.correct : false,
+                  ...patch
+                });
                 upd({ scenarios: next });
               };
               return (
                 <div key={i} style={{ background: T.card2, borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontSize: 13, color: T.text, lineHeight: 1.6 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <span style={{ flex: 1 }}>{text}</span>
+                    <div style={{ flex: 1 }}>
+                      {scName && <div style={{ fontWeight: 700, fontSize: 13, color: T.blue, marginBottom: 4 }}>{scName}</div>}
+                      <span>{scText}</span>
+                    </div>
                     <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", marginLeft: 8, lineHeight: 1 }}>×</button>
                   </div>
                   <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
@@ -780,16 +806,35 @@ export default function App() {
                 </div>
               );
             })}
+
+            {/* 시나리오 입력 폼 */}
             {showScenarioInput && (
               <div style={{ marginBottom: 10 }}>
-                <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)} style={{ ...inp, minHeight: 70, resize: "vertical", marginBottom: 8 }} placeholder="시나리오를 입력하세요..." autoFocus />
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>종목명</label>
+                  <input value={scenarioNameInput} onChange={e => setScenarioNameInput(e.target.value)}
+                    style={inp} placeholder="예: 삼성전자" autoFocus />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>시나리오 내용</label>
+                  <textarea value={scenarioInput} onChange={e => setScenarioInput(e.target.value)}
+                    style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
+                    placeholder="진입 조건, 목표가, 손절가, 대응 계획 등" />
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { text: scenarioInput.trim(), executed: false, correct: false }] }); setScenarioInput(""); setShowScenarioInput(false); }}>추가</Btn>
-                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setShowScenarioInput(false); }}>취소</Btn>
+                  <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                    if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { name: scenarioNameInput.trim(), content: scenarioInput.trim(), executed: false, correct: false }] });
+                    setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false);
+                  }}>추가</Btn>
+                  <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false); }}>취소</Btn>
                 </div>
               </div>
             )}
-            {!showScenarioInput && <button onClick={() => setShowScenarioInput(true)} style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 8, width: "100%", padding: "12px", color: T.sub, fontSize: 13, cursor: "pointer" }}>+ 시나리오 추가</button>}
+            {!showScenarioInput && (
+              <button onClick={() => setShowScenarioInput(true)} style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 8, width: "100%", padding: "12px", color: T.sub, fontSize: 13, cursor: "pointer" }}>
+                + 시나리오 추가
+              </button>
+            )}
           </div>
         </div>
 
@@ -1027,7 +1072,7 @@ export default function App() {
     const allScenarios = [];
     dates.forEach(date => {
       (data[date]?.scenarios || []).forEach(sc => {
-        const text = typeof sc === "string" ? sc : sc.text;
+        const text = typeof sc === "string" ? sc : (sc.content || sc.text || "");
         const executed = typeof sc === "object" ? sc.executed : false;
         const correct = typeof sc === "object" ? sc.correct : false;
         allScenarios.push({ date, text, executed, correct });
