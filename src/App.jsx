@@ -11,9 +11,8 @@ const storage = {
     } catch { return null; }
   },
   set: async (value) => {
-    try {
-      await supabase.from("maemae").upsert({ id: DB_ID, data: value });
-    } catch {}
+    const { error } = await supabase.from("maemae").upsert({ id: DB_ID, data: value });
+    if (error) throw new Error(error.message);
   },
 };
 
@@ -157,7 +156,7 @@ export default function App() {
   const j = selDate ? data[selDate] : null;
 
   const save = async (d, dl, tr) => {
-    try { await storage.set({ data: d, dates: dl, trash: tr }); } catch {}
+    await storage.set({ data: d, dates: dl, trash: tr });
   };
 
   const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
@@ -188,7 +187,7 @@ export default function App() {
     const newTrash = { ...trash, [selDate]: { deletedAt: Date.now(), journal: journalData } };
     setDates(newDates); setData(newData); setTrash(newTrash);
     setShowDeleteConfirm(false); setView("list"); setIsDirty(false);
-    await save(newData, newDates, newTrash);
+    try { await save(newData, newDates, newTrash); } catch { alert("삭제 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
   };
 
   // 복원
@@ -198,14 +197,14 @@ export default function App() {
     const newData = { ...data, [date]: item.journal };
     const newTrash = { ...trash }; delete newTrash[date];
     setDates(newDates); setData(newData); setTrash(newTrash);
-    await save(newData, newDates, newTrash);
+    try { await save(newData, newDates, newTrash); } catch { alert("복원 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
   };
 
   // 영구 삭제
   const permanentDelete = async (date) => {
     const newTrash = { ...trash }; delete newTrash[date];
     setTrash(newTrash); setConfirmPermDelete(null);
-    await save(data, dates, newTrash);
+    try { await save(data, dates, newTrash); } catch { alert("삭제 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
   };
 
   const selectCalDate = (y, m, d) => {
@@ -529,8 +528,8 @@ export default function App() {
         await save(newData, newDates, trash);
         setParseMsg(`✓ ${json.trades.length}건 추가됨`);
         setTimeout(() => {
-          closeImportModal();
           if (isDirty && !window.confirm("저장하지 않은 내용이 있어요.\n저장하지 않고 이동할까요?")) return;
+          closeImportModal();
           openDate(dateStr);
         }, 1200);
       } catch (e) {
@@ -645,8 +644,10 @@ export default function App() {
     const fmtGroupLabel = key => {
       if (listView === "주단위") {
         const [s, e] = key.split("~");
-        const [sy,sm,sd] = s.split("-"); const [,em,ed] = e.split("-");
-        return `${sy}년 ${+sm}월 ${+sd}일 ~ ${+em}월 ${+ed}일`;
+        const [sy,sm,sd] = s.split("-"); const [ey,em,ed] = e.split("-");
+        return sy === ey
+          ? `${sy}년 ${+sm}월 ${+sd}일 ~ ${+em}월 ${+ed}일`
+          : `${sy}년 ${+sm}월 ${+sd}일 ~ ${ey}년 ${+em}월 ${+ed}일`;
       }
       if (listView === "월단위") { const [y,m] = key.split("-"); return `${y}년 ${+m}월`; }
       return fmtDate(key);
@@ -875,7 +876,7 @@ export default function App() {
                         <div key={i} style={{ position: "relative", flexShrink: 0 }}>
                           <img src={img} alt="" onClick={() => setSelectedKakaoImg(i)}
                             style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: selectedKakaoImg === i ? `2px solid ${T.blue}` : `2px solid transparent`, opacity: selectedKakaoImg === i ? 1 : 0.6 }} />
-                          <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(Math.max(0, i - 1)); }}
+                          <button onClick={() => { const imgs = [...j.kakaoImages]; imgs.splice(i, 1); upd({ kakaoImages: imgs }); setSelectedKakaoImg(imgs.length === 0 ? 0 : Math.min(selectedKakaoImg, imgs.length - 1)); }}
                             style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                         </div>
                       ))}
@@ -980,7 +981,7 @@ export default function App() {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
               const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
-              const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...ef, ...patch } }));
+              const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...(p[trade.id] ?? ef), ...patch } }));
               const savEdit = () => {
                 const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
                 upd({ trades: trades.map(t => t.id === trade.id ? updated : t) });
