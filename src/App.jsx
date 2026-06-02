@@ -16,14 +16,7 @@ const storage = {
   },
 };
 
-const LARGE_TAGS = ["양봉", "음봉", "횡보", "기타"];
-const MEDIUM_TAGS = {
-  "양봉": ["양봉종배", "양봉도지", "양봉역망치", "갭상승", "투매", "상따", "기타"],
-  "음봉": ["음봉종배", "음봉도지", "음봉망치", "갭하락", "1음봉", "연상상따", "1상승상따", "기타"],
-  "횡보": ["횡보박스", "삼각수렴", "기타"],
-  "기타": ["기타"]
-};
-const SMALL_TAGS = ["소분류 없음", "단타", "스윙", "중기", "장기"];
+const LARGE_TAGS = ["양봉", "상따", "음봉", "장중", "공시"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
   { id: "매매일지", icon: "📋" },
@@ -76,7 +69,7 @@ export default function App() {
   const [kakaoOpen, setKakaoOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
@@ -229,7 +222,7 @@ export default function App() {
   const saveTrade = () => {
     if (!form.name.trim()) return;
     upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", chartImages: [], reason: "", reflection: "" });
     setFormChartIdx(0);
     setShowForm(false);
   };
@@ -532,7 +525,7 @@ export default function App() {
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
         const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] };
-        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "기타", tagMedium: "기타", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" }));
+        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "양봉", tagMedium: "", tagSmall: "", chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
         setData(newData);
@@ -956,11 +949,9 @@ export default function App() {
                 ))}
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대 → 중 → 소)</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
-                  <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
-                  <select style={inp} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))}>{(MEDIUM_TAGS[form.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
-                  <select style={inp} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                  <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
                   <Btn style={{ padding: "10px 14px" }} onClick={saveTrade}>추가</Btn>
                 </div>
               </div>
@@ -1031,11 +1022,9 @@ export default function App() {
                         ))}
                       </div>
                       <div style={{ marginBottom: 12 }}>
-                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대 → 중 → 소)</label>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                          <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
-                          <select style={inp} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value })}>{(MEDIUM_TAGS[ef.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
-                          <select style={inp} value={ef.tagSmall} onChange={e => setEf({ tagSmall: e.target.value })}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그</label>
+                        <div>
+                          <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
                         </div>
                       </div>
                       <div style={{ marginBottom: 12 }}>
