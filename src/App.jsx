@@ -24,10 +24,7 @@ const MEDIUM_TAGS = {
   "스윙": [],
 };
 const SMALL_TAGS = {
-  "종배": [],
-  "시초매매": [],
-  "장중매매": [],
-  "스윙": [],
+  "상따": ["1상승", "2상승", "3상승 이상"],
 };
 const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주"];
 const NAV_TABS = [
@@ -487,7 +484,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
             <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
-            <Tag label={t.tagMedium} pos={pos} />
+            <Tag label={[t.tagSmall, t.tagMedium].filter(Boolean).join(" ")} pos={pos} />
           </div>
           <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
         </div>
@@ -1188,18 +1185,18 @@ export default function App() {
                 <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 8 }}>태그 (대분류 → 중분류 → 소분류)</label>
                 <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                   {LARGE_TAGS.map(t => (
-                    <button key={t} onClick={() => setForm(p => ({ ...p, tagLarge: t, tagMedium: MEDIUM_TAGS[t]?.[0] || "", tagSmall: SMALL_TAGS[t]?.[0] || "" }))}
+                    <button key={t} onClick={() => { const med = MEDIUM_TAGS[t]?.[0] || ""; setForm(p => ({ ...p, tagLarge: t, tagMedium: med, tagSmall: SMALL_TAGS[med]?.[0] || "" })); }}
                       style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${form.tagLarge === t ? T.blue : T.inputBd}`, background: form.tagLarge === t ? "rgba(59,130,246,0.18)" : "transparent", color: form.tagLarge === t ? T.blue : T.sub, fontSize: 13, fontWeight: form.tagLarge === t ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
                       {t}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}>
-                  <select style={{ ...inp, color: (MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? T.sub : T.text }} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))} disabled={(MEDIUM_TAGS[form.tagLarge] || []).length === 0}>
+                  <select style={{ ...inp, color: (MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? T.sub : T.text }} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value, tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" }))} disabled={(MEDIUM_TAGS[form.tagLarge] || []).length === 0}>
                     {(MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? <option value="">-</option> : (MEDIUM_TAGS[form.tagLarge]).map(t => <option key={t}>{t}</option>)}
                   </select>
-                  <select style={{ ...inp, color: (SMALL_TAGS[form.tagLarge] || []).length === 0 ? T.sub : T.text }} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))} disabled={(SMALL_TAGS[form.tagLarge] || []).length === 0}>
-                    {(SMALL_TAGS[form.tagLarge] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[form.tagLarge]).map(t => <option key={t}>{t}</option>)}
+                  <select style={{ ...inp, color: (SMALL_TAGS[form.tagMedium] || []).length === 0 ? T.sub : T.text }} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))} disabled={(SMALL_TAGS[form.tagMedium] || []).length === 0}>
+                    {(SMALL_TAGS[form.tagMedium] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[form.tagMedium]).map(t => <option key={t}>{t}</option>)}
                   </select>
                   <Btn style={{ padding: "10px 14px" }} onClick={saveTrade}>추가</Btn>
                 </div>
@@ -1265,7 +1262,7 @@ export default function App() {
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{truncName(trade.name)}</div>
-                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{trade.tagMedium}</span>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{[trade.tagSmall, trade.tagMedium].filter(Boolean).join(" ")}</span>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1287,18 +1284,18 @@ export default function App() {
                         <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 8 }}>태그 (대분류 → 중분류 → 소분류)</label>
                         <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
                           {LARGE_TAGS.map(t => (
-                            <button key={t} onClick={() => setEf({ tagLarge: t, tagMedium: MEDIUM_TAGS[t]?.[0] || "", tagSmall: SMALL_TAGS[t]?.[0] || "" })}
+                            <button key={t} onClick={() => { const med = MEDIUM_TAGS[t]?.[0] || ""; setEf({ tagLarge: t, tagMedium: med, tagSmall: SMALL_TAGS[med]?.[0] || "" }); }}
                               style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${ef.tagLarge === t ? T.blue : T.inputBd}`, background: ef.tagLarge === t ? "rgba(59,130,246,0.18)" : "transparent", color: ef.tagLarge === t ? T.blue : T.sub, fontSize: 13, fontWeight: ef.tagLarge === t ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
                               {t}
                             </button>
                           ))}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                          <select style={{ ...inp, color: (MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? T.sub : T.text }} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value })} disabled={(MEDIUM_TAGS[ef.tagLarge] || []).length === 0}>
+                          <select style={{ ...inp, color: (MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? T.sub : T.text }} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value, tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" })} disabled={(MEDIUM_TAGS[ef.tagLarge] || []).length === 0}>
                             {(MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? <option value="">-</option> : (MEDIUM_TAGS[ef.tagLarge]).map(t => <option key={t}>{t}</option>)}
                           </select>
-                          <select style={{ ...inp, color: (SMALL_TAGS[ef.tagLarge] || []).length === 0 ? T.sub : T.text }} value={ef.tagSmall} onChange={e => setEf({ tagSmall: e.target.value })} disabled={(SMALL_TAGS[ef.tagLarge] || []).length === 0}>
-                            {(SMALL_TAGS[ef.tagLarge] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[ef.tagLarge]).map(t => <option key={t}>{t}</option>)}
+                          <select style={{ ...inp, color: (SMALL_TAGS[ef.tagMedium] || []).length === 0 ? T.sub : T.text }} value={ef.tagSmall} onChange={e => setEf({ tagSmall: e.target.value })} disabled={(SMALL_TAGS[ef.tagMedium] || []).length === 0}>
+                            {(SMALL_TAGS[ef.tagMedium] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[ef.tagMedium]).map(t => <option key={t}>{t}</option>)}
                           </select>
                         </div>
                       </div>
