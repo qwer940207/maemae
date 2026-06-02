@@ -17,6 +17,7 @@ const storage = {
 };
 
 const LARGE_TAGS = ["양봉", "상따", "음봉", "장중", "공시"];
+const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
   { id: "매매일지", icon: "📋" },
@@ -69,7 +70,7 @@ export default function App() {
   const [kakaoOpen, setKakaoOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
@@ -221,8 +222,8 @@ export default function App() {
 
   const saveTrade = () => {
     if (!form.name.trim()) return;
-    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", chartImages: [], reason: "", reflection: "" });
+    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
     setFormChartIdx(0);
     setShowForm(false);
   };
@@ -525,7 +526,7 @@ export default function App() {
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
         const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] };
-        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "양봉", tagMedium: "", tagSmall: "", chartImages: [], reason: "", reflection: "" }));
+        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "양봉", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
         setData(newData);
@@ -956,6 +957,19 @@ export default function App() {
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>손실 이유</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {LOSS_REASONS.map(r => (
+                    <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                      <input type="checkbox" checked={form.lossReasons.includes(r)}
+                        onChange={() => setForm(p => ({ ...p, lossReasons: p.lossReasons.includes(r) ? p.lossReasons.filter(x => x !== r) : [...p.lossReasons, r] }))}
+                        style={{ accentColor: T.loss, width: 13, height: 13 }} />
+                      <span style={{ color: form.lossReasons.includes(r) ? T.loss : T.sub }}>{r}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
                 <div onClick={() => chartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: T.input }}>
                   <div style={{ fontSize: 22, marginBottom: 4 }}>🖼️</div>
@@ -989,10 +1003,10 @@ export default function App() {
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
-              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
+              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "양봉", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
               const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...(p[trade.id] ?? ef), ...patch } }));
               const savEdit = () => {
-                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
+                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, lossReasons: ef.lossReasons, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
                 upd({ trades: trades.map(t => t.id === trade.id ? updated : t) });
                 setExpandedId(null);
               };
@@ -1025,6 +1039,19 @@ export default function App() {
                         <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그</label>
                         <div>
                           <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>손실 이유</label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {LOSS_REASONS.map(r => (
+                            <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                              <input type="checkbox" checked={(ef.lossReasons || []).includes(r)}
+                                onChange={() => setEf({ lossReasons: (ef.lossReasons || []).includes(r) ? ef.lossReasons.filter(x => x !== r) : [...(ef.lossReasons || []), r] })}
+                                style={{ accentColor: T.loss, width: 13, height: 13 }} />
+                              <span style={{ color: (ef.lossReasons || []).includes(r) ? T.loss : T.sub }}>{r}</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
                       <div style={{ marginBottom: 12 }}>
