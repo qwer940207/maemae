@@ -87,6 +87,9 @@ export default function App() {
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
   const [scenarioNameInput, setScenarioNameInput] = useState("");
+  const [editingScIdx, setEditingScIdx] = useState(null);
+  const [editingScName, setEditingScName] = useState("");
+  const [editingScContent, setEditingScContent] = useState("");
   const [showCal, setShowCal] = useState(false);
   const [calYear, setCalYear] = useState(2026);
   const [calMonth, setCalMonth] = useState(5);
@@ -816,25 +819,58 @@ export default function App() {
                 });
                 upd({ scenarios: next });
               };
+              const isEditing = editingScIdx === i;
               return (
                 <div key={i} style={{ background: T.card2, borderRadius: 8, padding: "10px 12px", marginBottom: 6, fontSize: 13, color: T.text, lineHeight: 1.6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      {scName && <div style={{ fontWeight: 700, fontSize: 13, color: T.blue, marginBottom: 4 }}>{scName}</div>}
-                      <span>{scText}</span>
+                  {isEditing ? (
+                    <div>
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>종목명</label>
+                        <input value={editingScName} onChange={e => setEditingScName(e.target.value)}
+                          style={inp} placeholder="예: 삼성전자" autoFocus />
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>시나리오 내용</label>
+                        <textarea value={editingScContent} onChange={e => setEditingScContent(e.target.value)}
+                          style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
+                          placeholder="진입 조건, 목표가, 손절가, 대응 계획 등" />
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                          if (editingScContent.trim()) {
+                            updSc({ name: editingScName.trim(), content: editingScContent.trim() });
+                          }
+                          setEditingScIdx(null);
+                        }}>저장</Btn>
+                        <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => setEditingScIdx(null)}>취소</Btn>
+                      </div>
                     </div>
-                    <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", marginLeft: 8, lineHeight: 1 }}>×</button>
-                  </div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
-                      <input type="checkbox" checked={executed} onChange={e => updSc({ executed: e.target.checked })} style={{ accentColor: T.green, width: 14, height: 14 }} />
-                      <span style={{ color: executed ? T.green : T.sub }}>실행했음</span>
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
-                      <input type="checkbox" checked={correct} onChange={e => updSc({ correct: e.target.checked })} style={{ accentColor: T.blue, width: 14, height: 14 }} />
-                      <span style={{ color: correct ? T.blue : T.sub }}>시장 맞았음</span>
-                    </label>
-                  </div>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ flex: 1 }}>
+                          {scName && <div style={{ fontWeight: 700, fontSize: 13, color: T.blue, marginBottom: 4 }}>{scName}</div>}
+                          <span>{scText}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                          <button onClick={() => { setEditingScIdx(i); setEditingScName(scName); setEditingScContent(scText); }}
+                            style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 13, padding: "0 4px", lineHeight: 1 }}>✏️</button>
+                          <button onClick={() => upd({ scenarios: j.scenarios.filter((_, k) => k !== i) })}
+                            style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1 }}>×</button>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                          <input type="checkbox" checked={executed} onChange={e => updSc({ executed: e.target.checked })} style={{ accentColor: T.green, width: 14, height: 14 }} />
+                          <span style={{ color: executed ? T.green : T.sub }}>실행했음</span>
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                          <input type="checkbox" checked={correct} onChange={e => updSc({ correct: e.target.checked })} style={{ accentColor: T.blue, width: 14, height: 14 }} />
+                          <span style={{ color: correct ? T.blue : T.sub }}>시장 맞았음</span>
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
