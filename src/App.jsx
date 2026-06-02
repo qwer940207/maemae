@@ -100,6 +100,8 @@ export default function App() {
   const [dashCalYear, setDashCalYear] = useState(new Date().getFullYear());
   const [dashCalMonth, setDashCalMonth] = useState(new Date().getMonth());
   const [editForms, setEditForms] = useState({});
+  const [formChartIdx, setFormChartIdx] = useState(0);
+  const [editChartIdx, setEditChartIdx] = useState({});
   const editChartRef = useRef(null);
   const [lightbox, setLightbox] = useState(null);
   const [selectedKakaoImg, setSelectedKakaoImg] = useState(0);
@@ -228,6 +230,7 @@ export default function App() {
     if (!form.name.trim()) return;
     upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
     setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "양봉종배", tagSmall: "소분류 없음", chartImages: [], reason: "", reflection: "" });
+    setFormChartIdx(0);
     setShowForm(false);
   };
 
@@ -969,13 +972,20 @@ export default function App() {
                 </div>
                 <input ref={chartRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] }))))} />
                 {form.chartImages.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                    {form.chartImages.map((img, i) => (
-                      <div key={i} style={{ position: "relative" }}>
-                        <img src={img} alt="" onClick={() => setLightbox(img)} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }} />
-                        <button onClick={() => setForm(p => ({ ...p, chartImages: p.chartImages.filter((_, j) => j !== i) }))} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
-                      </div>
-                    ))}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
+                      {form.chartImages.map((img, i) => (
+                        <div key={i} style={{ position: "relative", flexShrink: 0 }}>
+                          <img src={img} alt="" onClick={() => setFormChartIdx(i)}
+                            style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: formChartIdx === i ? `2px solid ${T.tabActive}` : "2px solid transparent", opacity: formChartIdx === i ? 1 : 0.6 }} />
+                          <button onClick={() => { setForm(p => ({ ...p, chartImages: p.chartImages.filter((_, j) => j !== i) })); setFormChartIdx(prev => Math.min(prev, form.chartImages.length - 2)); }}
+                            style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                    <img src={form.chartImages[formChartIdx] ?? form.chartImages[0]} alt=""
+                      onClick={() => setLightbox(form.chartImages[formChartIdx] ?? form.chartImages[0])}
+                      style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
                   </div>
                 )}
               </div>
@@ -1031,13 +1041,20 @@ export default function App() {
                       <div style={{ marginBottom: 12 }}>
                         <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
                         {ef.chartImages.length > 0 && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                            {ef.chartImages.map((img, i) => (
-                              <div key={i} style={{ position: "relative" }}>
-                                <img src={img} alt="" onClick={() => setLightbox(img)} style={{ width: 90, height: 70, objectFit: "cover", borderRadius: 6, cursor: "zoom-in" }} />
-                                <button onClick={() => setEf({ chartImages: ef.chartImages.filter((_, k) => k !== i) })} style={{ position: "absolute", top: -5, right: -5, width: 19, height: 19, borderRadius: "50%", background: T.red, border: "2px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer" }}>×</button>
-                              </div>
-                            ))}
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
+                              {ef.chartImages.map((img, i) => (
+                                <div key={i} style={{ position: "relative", flexShrink: 0 }}>
+                                  <img src={img} alt="" onClick={() => setEditChartIdx(p => ({ ...p, [trade.id]: i }))}
+                                    style={{ width: 54, height: 54, objectFit: "cover", borderRadius: 6, cursor: "pointer", border: (editChartIdx[trade.id] ?? 0) === i ? `2px solid ${T.tabActive}` : "2px solid transparent", opacity: (editChartIdx[trade.id] ?? 0) === i ? 1 : 0.6 }} />
+                                  <button onClick={() => { setEf({ chartImages: ef.chartImages.filter((_, k) => k !== i) }); setEditChartIdx(p => ({ ...p, [trade.id]: Math.min(p[trade.id] ?? 0, ef.chartImages.length - 2) })); }}
+                                    style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                                </div>
+                              ))}
+                            </div>
+                            <img src={ef.chartImages[editChartIdx[trade.id] ?? 0] ?? ef.chartImages[0]} alt=""
+                              onClick={() => setLightbox(ef.chartImages[editChartIdx[trade.id] ?? 0] ?? ef.chartImages[0])}
+                              style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
                           </div>
                         )}
                         <div onClick={() => editChartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "14px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}>
