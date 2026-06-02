@@ -145,13 +145,21 @@ export default function App() {
       if (view === "list") {
         handleImportImage(file);
       } else if (view === "journal") {
-        if (showForm) readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
-        else if (selDate) readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+        if (showForm) {
+          readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
+        } else if (expandedId !== null) {
+          readImg(file, src => setEditForms(p => ({
+            ...p,
+            [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
+          })));
+        } else if (selDate) {
+          readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+        }
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing]);
+  }, [view, showForm, selDate, parsing, expandedId]);
 
   const j = selDate ? data[selDate] : null;
 
