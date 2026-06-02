@@ -45,6 +45,7 @@ const readImg = (file, cb) => {
   if (!file?.type.startsWith("image/")) return;
   const r = new FileReader();
   r.onload = e => cb(e.target.result);
+  r.onerror = () => console.error("이미지를 읽는 중 오류가 발생했습니다.");
   r.readAsDataURL(file);
 };
 
@@ -127,7 +128,7 @@ export default function App() {
               Object.entries(p.trash).filter(([, v]) => now - v.deletedAt < THREE_DAYS_MS)
             );
             setTrash(cleaned);
-            if (Object.keys(cleaned).length !== Object.keys(p.trash).length) {
+            if (Object.keys(cleaned).length !== Object.keys(p.trash).length && p.data && p.dates) {
               await storage.set({ data: p.data, dates: p.dates, trash: cleaned });
             }
           }
@@ -146,7 +147,7 @@ export default function App() {
         handleImportImage(file);
       } else if (view === "journal") {
         if (showForm) readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
-        else readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
+        else if (selDate) readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
       }
     };
     window.addEventListener("paste", onPaste);
@@ -159,7 +160,7 @@ export default function App() {
     try { await storage.set({ data: d, dates: dl, trash: tr }); } catch {}
   };
 
-  const upd = u => { setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
+  const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
 
   const openDate = date => {
     setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
@@ -180,31 +181,31 @@ export default function App() {
   };
 
   // 휴지통으로 이동
-  const deleteDate = () => {
+  const deleteDate = async () => {
     const journalData = data[selDate];
     const newDates = dates.filter(d => d !== selDate);
     const newData = { ...data }; delete newData[selDate];
     const newTrash = { ...trash, [selDate]: { deletedAt: Date.now(), journal: journalData } };
     setDates(newDates); setData(newData); setTrash(newTrash);
     setShowDeleteConfirm(false); setView("list"); setIsDirty(false);
-    save(newData, newDates, newTrash);
+    await save(newData, newDates, newTrash);
   };
 
   // 복원
-  const restoreDate = (date) => {
+  const restoreDate = async (date) => {
     const item = trash[date];
     const newDates = [...dates, date].sort((a, b) => b.localeCompare(a));
     const newData = { ...data, [date]: item.journal };
     const newTrash = { ...trash }; delete newTrash[date];
     setDates(newDates); setData(newData); setTrash(newTrash);
-    save(newData, newDates, newTrash);
+    await save(newData, newDates, newTrash);
   };
 
   // 영구 삭제
-  const permanentDelete = (date) => {
+  const permanentDelete = async (date) => {
     const newTrash = { ...trash }; delete newTrash[date];
     setTrash(newTrash); setConfirmPermDelete(null);
-    save(data, dates, newTrash);
+    await save(data, dates, newTrash);
   };
 
   const selectCalDate = (y, m, d) => {
@@ -242,7 +243,7 @@ export default function App() {
     const firstDow = new Date(calYear, calMonth, 1).getDay();
     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
     const prevDays = new Date(calYear, calMonth, 0).getDate();
-    const today = "2026-06-01";
+    const today = new Date().toISOString().slice(0, 10);
     const cells = [];
     for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, type: "prev" });
     for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: "cur" });
@@ -485,13 +486,13 @@ export default function App() {
           {recent.length === 0
             ? <div style={{ padding: "32px", textAlign: "center", color: T.sub, fontSize: 13 }}>매매 내역이 없습니다.<br /><span style={{ fontSize: 11, marginTop: 4, display: "block" }}>매매일지에서 종목을 추가해보세요.</span></div>
             : recent.map((t, i) => {
-              const pos = t.returnRate >= 0;
+              const pos = (t.returnRate ?? 0) >= 0;
               return (
                 <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{truncName(t.name)}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
-                    <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{t.returnRate.toFixed(2)}%</div>
+                    <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{(t.returnRate ?? 0).toFixed(2)}%</div>
                   </div>
                 </div>
               );
@@ -527,7 +528,11 @@ export default function App() {
         setData(newData);
         await save(newData, newDates, trash);
         setParseMsg(`✓ ${json.trades.length}건 추가됨`);
-        setTimeout(() => { closeImportModal(); openDate(dateStr); }, 1200);
+        setTimeout(() => {
+          closeImportModal();
+          if (isDirty && !window.confirm("저장하지 않은 내용이 있어요.\n저장하지 않고 이동할까요?")) return;
+          openDate(dateStr);
+        }, 1200);
       } catch (e) {
         setParseMsg("분석 실패 ✕");
         setTimeout(() => { setParseMsg(""); setImportPreview(null); setImportFile(null); }, 2500);
@@ -944,7 +949,7 @@ export default function App() {
                   <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "" }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
                   <select style={inp} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))}>{(MEDIUM_TAGS[form.tagLarge] || []).map(t => <option key={t}>{t}</option>)}</select>
                   <select style={inp} value={form.tagSmall} onChange={e => setForm(p => ({ ...p, tagSmall: e.target.value }))}>{SMALL_TAGS.map(t => <option key={t}>{t}</option>)}</select>
-                  <Btn style={{ padding: "10px 14px" }}>추가</Btn>
+                  <Btn style={{ padding: "10px 14px" }} onClick={saveTrade}>추가</Btn>
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
