@@ -838,14 +838,14 @@ export default function App() {
             {j.scenarios?.map((sc, i) => {
               const scName = typeof sc === "object" ? (sc.name || "") : "";
               const scText = typeof sc === "string" ? sc : (sc.content || sc.text || "");
-              const executed = typeof sc === "object" ? sc.executed : false;
-              const correct = typeof sc === "object" ? sc.correct : false;
+              const executed = typeof sc === "object" ? (sc.executed ?? null) : null;
+              const resultComment = typeof sc === "object" ? (sc.resultComment || "") : "";
               const updSc = (patch) => {
                 const next = j.scenarios.map((s, k) => k !== i ? s : {
                   name: typeof s === "object" ? (s.name || "") : "",
                   content: typeof s === "string" ? s : (s.content || s.text || ""),
-                  executed: typeof s === "object" ? s.executed : false,
-                  correct: typeof s === "object" ? s.correct : false,
+                  executed: typeof s === "object" ? (s.executed ?? null) : null,
+                  resultComment: typeof s === "object" ? (s.resultComment || "") : "",
                   ...patch
                 });
                 upd({ scenarios: next });
@@ -890,16 +890,18 @@ export default function App() {
                             style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1 }}>×</button>
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
-                          <input type="checkbox" checked={executed} onChange={e => updSc({ executed: e.target.checked })} style={{ accentColor: T.green, width: 14, height: 14 }} />
-                          <span style={{ color: executed ? T.green : T.sub }}>실행했음</span>
-                        </label>
-                        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
-                          <input type="checkbox" checked={correct} onChange={e => updSc({ correct: e.target.checked })} style={{ accentColor: T.blue, width: 14, height: 14 }} />
-                          <span style={{ color: correct ? T.blue : T.sub }}>시장 맞았음</span>
-                        </label>
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: T.sub, marginRight: 2 }}>실행 결과</span>
+                        <button onClick={() => updSc({ executed: executed === true ? null : true })}
+                          style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === true ? T.green : T.inputBd}`, background: executed === true ? "rgba(34,197,94,0.15)" : "transparent", color: executed === true ? T.green : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>O</button>
+                        <button onClick={() => updSc({ executed: executed === false ? null : false })}
+                          style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === false ? T.red : T.inputBd}`, background: executed === false ? "rgba(239,68,68,0.15)" : "transparent", color: executed === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
                       </div>
+                      <textarea
+                        value={resultComment}
+                        onChange={e => updSc({ resultComment: e.target.value })}
+                        style={{ ...inp, minHeight: 56, resize: "vertical", lineHeight: 1.7, fontSize: 12, marginTop: 8 }}
+                        placeholder="결과 코멘트 (장 마감 후)..." />
                     </>
                   )}
                 </div>
@@ -922,7 +924,7 @@ export default function App() {
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
-                    if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { name: scenarioNameInput.trim(), content: scenarioInput.trim(), executed: false, correct: false }] });
+                    if (scenarioInput.trim()) upd({ scenarios: [...(j.scenarios || []), { name: scenarioNameInput.trim(), content: scenarioInput.trim(), executed: null, resultComment: "" }] });
                     setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false);
                   }}>추가</Btn>
                   <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setScenarioInput(""); setScenarioNameInput(""); setShowScenarioInput(false); }}>취소</Btn>
