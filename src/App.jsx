@@ -130,7 +130,7 @@ export default function App() {
   const [expertComment, setExpertComment] = useState("");
   const [expertImage, setExpertImage] = useState(null);
   const [expertOpen, setExpertOpen] = useState(true);
-  const [focusedImgField, setFocusedImgField] = useState(null);
+  const focusedImgFieldRef = useRef(null);
 
   // 불러오기 + 3일 지난 항목 자동 정리
   useEffect(() => {
@@ -172,9 +172,9 @@ export default function App() {
             [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
           })));
         } else if (selDate && !showExpertForm) {
-          if (focusedImgField === "tradeVolume") {
+          if (focusedImgFieldRef.current === "tradeVolume") {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], tradeVolumeImg: src } })); setIsDirty(true); });
-          } else if (focusedImgField === "watchlist") {
+          } else if (focusedImgFieldRef.current === "watchlist") {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], watchlistImg: src } })); setIsDirty(true); });
           } else {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
@@ -186,7 +186,7 @@ export default function App() {
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing, expandedId, showExpertForm, focusedImgField]);
+  }, [view, showForm, selDate, parsing, expandedId, showExpertForm]);
 
   const j = selDate ? data[selDate] : null;
 
@@ -944,14 +944,18 @@ export default function App() {
                       style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                   </div>
                 ) : (
-                  <div
-                    onClick={() => ref.current?.click()}
-                    onFocus={() => setFocusedImgField(field === "tradeVolumeImg" ? "tradeVolume" : "watchlist")}
-                    onBlur={() => setFocusedImgField(null)}
-                    onPaste={e => { const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/")); if (item) { e.preventDefault(); readImg(item.getAsFile(), src => { upd({ [field]: src }); }); } }}
-                    tabIndex={0}
-                    style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "28px 10px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub, outline: "none" }}>
-                    🖼️<br />클릭 또는 Ctrl+V
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div
+                      tabIndex={0}
+                      onFocus={() => { focusedImgFieldRef.current = field === "tradeVolumeImg" ? "tradeVolume" : "watchlist"; }}
+                      onBlur={() => { focusedImgFieldRef.current = null; }}
+                      style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "28px 10px", textAlign: "center", background: T.input, fontSize: 12, color: T.sub, outline: "none", cursor: "default" }}>
+                      📋 클릭 후 Ctrl+V
+                    </div>
+                    <button onClick={() => ref.current?.click()}
+                      style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "6px", fontSize: 11, color: T.sub, cursor: "pointer" }}>
+                      📁 파일 선택
+                    </button>
                   </div>
                 )}
                 <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => { upd({ [field]: src }); }); }} />
@@ -1056,18 +1060,18 @@ export default function App() {
             <div style={{ padding: 16 }}>
               {/* 엔트리 목록 */}
               {(j.expertEntries || []).map((entry, i) => (
-                <div key={entry.id} style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: entry.image ? 8 : 0 }}>
-                    <button onClick={() => { if (!window.confirm("이 항목을 삭제하시겠어요?")) return; upd({ expertEntries: (j.expertEntries || []).filter((_, k) => k !== i) }); }}
-                      style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px" }}>×</button>
-                  </div>
+                <div key={entry.id} style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
                   {entry.image && (
                     <img src={entry.image} alt="" onClick={() => setLightbox(entry.image)}
-                      style={{ width: "100%", borderRadius: 8, marginBottom: 8, cursor: "zoom-in", display: "block" }} />
+                      style={{ width: 120, flexShrink: 0, borderRadius: 8, cursor: "zoom-in", display: "block", objectFit: "cover" }} />
                   )}
-                  {entry.comment && (
-                    <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{entry.comment}</div>
-                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {entry.comment && (
+                      <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{entry.comment}</div>
+                    )}
+                  </div>
+                  <button onClick={() => { if (!window.confirm("이 항목을 삭제하시겠어요?")) return; upd({ expertEntries: (j.expertEntries || []).filter((_, k) => k !== i) }); }}
+                    style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
                 </div>
               ))}
               {!(j.expertEntries || []).length && !showExpertForm && (
@@ -1076,40 +1080,40 @@ export default function App() {
 
               {/* 추가 폼 */}
               {showExpertForm && (
-                <div style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                  {/* 이미지 첨부 */}
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>사진 첨부 (선택)</label>
+                <div style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {/* 왼쪽: 이미지 */}
+                  <div style={{ width: 130, flexShrink: 0 }}>
                     {expertImage ? (
-                      <div style={{ position: "relative", display: "inline-block" }}>
-                        <img src={expertImage} alt="" style={{ maxWidth: "100%", borderRadius: 8, display: "block" }} />
+                      <div style={{ position: "relative" }}>
+                        <img src={expertImage} alt="" style={{ width: "100%", borderRadius: 8, display: "block" }} />
                         <button onClick={() => setExpertImage(null)}
                           style={{ position: "absolute", top: 4, right: 4, background: T.red, border: "none", borderRadius: "50%", width: 20, height: 20, color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                       </div>
                     ) : (
-                      <div onClick={() => expertRef.current?.click()} onPaste={e => { const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/")); if (item) { e.preventDefault(); readImg(item.getAsFile(), src => setExpertImage(src)); } }}
-                        style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "14px 10px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}
-                        tabIndex={0}>
-                        🖼️ 클릭 또는 Ctrl+V 로 사진 첨부
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "20px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6 }}>
+                          📋 Ctrl+V
+                        </div>
+                        <button onClick={() => expertRef.current?.click()}
+                          style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "5px", fontSize: 11, color: T.sub, cursor: "pointer" }}>📁 파일 선택</button>
                       </div>
                     )}
                     <input ref={expertRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => setExpertImage(src)); }} />
                   </div>
-                  {/* 코멘트 */}
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>코멘트</label>
+                  {/* 오른쪽: 코멘트 + 버튼 */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea value={expertComment} onChange={e => setExpertComment(e.target.value)}
-                      style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
-                      placeholder="이 매매일지에서 배운 점, 참고할 내용 등을 적어보세요..." />
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
-                      if (!expertImage && !expertComment.trim()) return;
-                      const entry = { id: Date.now(), image: expertImage, comment: expertComment.trim() };
-                      upd({ expertEntries: [...(j.expertEntries || []), entry] });
-                      setExpertImage(null); setExpertComment(""); setShowExpertForm(false);
-                    }}>추가</Btn>
-                    <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setExpertImage(null); setExpertComment(""); setShowExpertForm(false); }}>취소</Btn>
+                      style={{ ...inp, minHeight: 110, resize: "vertical", lineHeight: 1.7, marginBottom: 8 }}
+                      placeholder="배운 점, 참고할 내용 등을 적어보세요..." />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                        if (!expertImage && !expertComment.trim()) return;
+                        const entry = { id: Date.now(), image: expertImage, comment: expertComment.trim() };
+                        upd({ expertEntries: [...(j.expertEntries || []), entry] });
+                        setExpertImage(null); setExpertComment(""); setShowExpertForm(false);
+                      }}>추가</Btn>
+                      <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setExpertImage(null); setExpertComment(""); setShowExpertForm(false); }}>취소</Btn>
+                    </div>
                   </div>
                 </div>
               )}
