@@ -917,9 +917,9 @@ export default function App() {
                         </div>
                       </div>
                       {resultComment ? (
-                        <div style={{ marginTop: 8, fontSize: 12, color: T.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", background: T.input, borderRadius: 6, padding: "7px 10px", border: `1px solid ${T.border}` }}>
-                          <span style={{ fontSize: 11, color: T.sub, fontWeight: 600, display: "block", marginBottom: 3 }}>결과 코멘트</span>
-                          {resultComment}
+                        <div style={{ marginTop: 8, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
+                          <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>결과 코멘트</div>
+                          <span style={{ whiteSpace: "pre-wrap" }}>{resultComment}</span>
                         </div>
                       ) : null}
                     </>
