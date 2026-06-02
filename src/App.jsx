@@ -39,7 +39,7 @@ const NAV_TABS = [
 ];
 
 const INIT_DATES = ["2026-06-01", "2026-05-31", "2026-05-30"];
-const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] }]));
+const INIT_DATA = Object.fromEntries(INIT_DATES.map(d => [d, { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] }]));
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 const fmtDate = d => { const [y, m, day] = d.split("-"); return `${y}년 ${+m}월 ${+day}일`; };
@@ -123,6 +123,11 @@ export default function App() {
 
   const kakaoRef = useRef(null);
   const chartRef = useRef(null);
+  const expertRef = useRef(null);
+  const [showExpertForm, setShowExpertForm] = useState(false);
+  const [expertComment, setExpertComment] = useState("");
+  const [expertImage, setExpertImage] = useState(null);
+  const [expertOpen, setExpertOpen] = useState(true);
 
   // 불러오기 + 3일 지난 항목 자동 정리
   useEffect(() => {
@@ -182,7 +187,7 @@ export default function App() {
 
   const openDate = date => {
     setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
-    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] } });
+    setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] } });
   };
 
   const goBack = () => {
@@ -230,7 +235,7 @@ export default function App() {
     const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (!dates.includes(dateStr)) {
       setDates(p => [...p, dateStr].sort((a, b) => b.localeCompare(a)));
-      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] } }));
+      setData(p => ({ ...p, [dateStr]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] } }));
     }
     setShowCal(false); openDate(dateStr);
   };
@@ -540,7 +545,7 @@ export default function App() {
 
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
-        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", trades: [] };
+        const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], trades: [] };
         const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
@@ -998,6 +1003,87 @@ export default function App() {
                   }}
                   style={{ ...inp, minHeight: 400, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* 고수의 매매일지 */}
+        <div style={cardStyle()}>
+          <div onClick={() => setExpertOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!expertOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>🏆</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>고수의 매매일지</span>
+              <span style={{ fontSize: 11, color: T.sub }}>{(j.expertEntries || []).length}개</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: expertOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
+          </div>
+          {expertOpen && (
+            <div style={{ padding: 16 }}>
+              {/* 엔트리 목록 */}
+              {(j.expertEntries || []).map((entry, i) => (
+                <div key={entry.id} style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: entry.image ? 8 : 0 }}>
+                    <button onClick={() => { if (!window.confirm("이 항목을 삭제하시겠어요?")) return; upd({ expertEntries: (j.expertEntries || []).filter((_, k) => k !== i) }); }}
+                      style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px" }}>×</button>
+                  </div>
+                  {entry.image && (
+                    <img src={entry.image} alt="" onClick={() => setLightbox(entry.image)}
+                      style={{ width: "100%", borderRadius: 8, marginBottom: 8, cursor: "zoom-in", display: "block" }} />
+                  )}
+                  {entry.comment && (
+                    <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{entry.comment}</div>
+                  )}
+                </div>
+              ))}
+              {!(j.expertEntries || []).length && !showExpertForm && (
+                <p style={{ color: T.sub, fontSize: 13, marginBottom: 12 }}>아직 추가된 항목이 없습니다.</p>
+              )}
+
+              {/* 추가 폼 */}
+              {showExpertForm && (
+                <div style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                  {/* 이미지 첨부 */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>사진 첨부 (선택)</label>
+                    {expertImage ? (
+                      <div style={{ position: "relative", display: "inline-block" }}>
+                        <img src={expertImage} alt="" style={{ maxWidth: "100%", borderRadius: 8, display: "block" }} />
+                        <button onClick={() => setExpertImage(null)}
+                          style={{ position: "absolute", top: 4, right: 4, background: T.red, border: "none", borderRadius: "50%", width: 20, height: 20, color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                      </div>
+                    ) : (
+                      <div onClick={() => expertRef.current?.click()} onPaste={e => { const file = Array.from(e.clipboardData.files).find(f => f.type.startsWith("image/")); if (file) readImg(file, src => setExpertImage(src)); }}
+                        style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "14px 10px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}
+                        tabIndex={0}>
+                        🖼️ 클릭 또는 Ctrl+V 로 사진 첨부
+                      </div>
+                    )}
+                    <input ref={expertRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => setExpertImage(src)); }} />
+                  </div>
+                  {/* 코멘트 */}
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>코멘트</label>
+                    <textarea value={expertComment} onChange={e => setExpertComment(e.target.value)}
+                      style={{ ...inp, minHeight: 100, resize: "vertical", lineHeight: 1.7 }}
+                      placeholder="이 매매일지에서 배운 점, 참고할 내용 등을 적어보세요..." />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                      if (!expertImage && !expertComment.trim()) return;
+                      const entry = { id: Date.now(), image: expertImage, comment: expertComment.trim() };
+                      upd({ expertEntries: [...(j.expertEntries || []), entry] });
+                      setExpertImage(null); setExpertComment(""); setShowExpertForm(false);
+                    }}>추가</Btn>
+                    <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setExpertImage(null); setExpertComment(""); setShowExpertForm(false); }}>취소</Btn>
+                  </div>
+                </div>
+              )}
+
+              {!showExpertForm && (
+                <button onClick={() => setShowExpertForm(true)} style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 8, width: "100%", padding: "12px", color: T.sub, fontSize: 13, cursor: "pointer" }}>
+                  + 고수의 매매일지 추가
+                </button>
+              )}
             </div>
           )}
         </div>
