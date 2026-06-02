@@ -88,6 +88,8 @@ export default function App() {
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
   const [analysisPeriod, setAnalysisPeriod] = useState("일별");
+  const [listView, setListView] = useState("일단위");
+  const [listSearch, setListSearch] = useState("");
   const [dashPeriod, setDashPeriod] = useState("전체");
   const [dashStart, setDashStart] = useState("");
   const [dashEnd, setDashEnd] = useState("");
@@ -593,41 +595,140 @@ export default function App() {
   };
 
   // ──────────── LIST ────────────
-  const renderList = () => (
-    <div style={{ padding: "14px 12px" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
-        <button onClick={() => setShowTrash(true)}
-          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
-        </button>
-        <button onClick={() => setShowImportModal(true)} disabled={parsing}
-          style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          📷 {parseMsg || "사진"}
-        </button>
-        <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) { handleImportImage(e.target.files[0]); setShowImportModal(false); } e.target.value = ""; }} />
-        <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
+  const renderList = () => {
+    // 검색 필터
+    const filteredDates = dates.filter(date => {
+      if (!listSearch.trim()) return true;
+      const q = listSearch.toLowerCase();
+      const d = data[date] || {};
+      if (fmtDate(date).includes(q) || date.includes(q)) return true;
+      if ((d.trades || []).some(t =>
+        t.name?.toLowerCase().includes(q) ||
+        t.tagLarge?.toLowerCase().includes(q) ||
+        t.tagMedium?.toLowerCase().includes(q) ||
+        t.reason?.toLowerCase().includes(q) ||
+        t.reflection?.toLowerCase().includes(q)
+      )) return true;
+      if (d.teacherComment?.toLowerCase().includes(q)) return true;
+      return false;
+    });
+
+    // 주 시작일(월요일) 구하기
+    const getWeekKey = dateStr => {
+      const d = new Date(dateStr);
+      const dow = d.getDay();
+      const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      return mon.toISOString().slice(0,10) + "~" + sun.toISOString().slice(0,10);
+    };
+
+    // 그룹핑
+    const groups = {};
+    filteredDates.forEach(date => {
+      const key = listView === "주단위" ? getWeekKey(date) : listView === "월단위" ? date.slice(0,7) : date;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(date);
+    });
+    const groupKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+    const fmtGroupLabel = key => {
+      if (listView === "주단위") {
+        const [s, e] = key.split("~");
+        const [sy,sm,sd] = s.split("-"); const [,em,ed] = e.split("-");
+        return `${sy}년 ${+sm}월 ${+sd}일 ~ ${+em}월 ${+ed}일`;
+      }
+      if (listView === "월단위") { const [y,m] = key.split("-"); return `${y}년 ${+m}월`; }
+      return fmtDate(key);
+    };
+
+    return (
+      <div style={{ padding: "14px 12px" }}>
+        {/* 일/주/월 탭 */}
+        <div style={{ display: "flex", background: T.card, borderRadius: 10, padding: 4, marginBottom: 12, border: `1px solid ${T.border}` }}>
+          {["일단위", "주단위", "월단위"].map(v => (
+            <button key={v} onClick={() => setListView(v)}
+              style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600, fontSize: 14, background: listView === v ? T.tabActive : "transparent", color: listView === v ? "#fff" : T.sub, transition: "background 0.2s" }}>
+              {v}
+            </button>
+          ))}
+        </div>
+
+        {/* 검색 */}
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.sub, fontSize: 14, pointerEvents: "none" }}>🔍</span>
+          <input value={listSearch} onChange={e => setListSearch(e.target.value)}
+            style={{ ...inp, paddingLeft: 36 }} placeholder="날짜, 종목명, 태그, 매매이유, 코멘트 검색..." />
+        </div>
+
+        {/* 버튼 */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => setShowTrash(true)}
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            🗑️ 휴지통{Object.keys(trash).length > 0 && <span style={{ background: "#2a1a1a", color: T.red, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{Object.keys(trash).length}</span>}
+          </button>
+          <button onClick={() => setShowImportModal(true)} disabled={parsing}
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: parsing ? T.sub : T.blue, fontSize: 13, cursor: parsing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            📷 {parseMsg || "사진"}
+          </button>
+          <input ref={importRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) { handleImportImage(e.target.files[0]); setShowImportModal(false); } e.target.value = ""; }} />
+          <Btn style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setShowCal(true)}>+ 일지 추가</Btn>
+        </div>
+
+        {/* 목록 */}
+        {filteredDates.length === 0
+          ? <div style={{ textAlign: "center", color: T.sub, padding: "40px 0", fontSize: 13 }}>{listSearch ? "검색 결과가 없어요." : "일지가 없습니다."}</div>
+          : groupKeys.map(key => {
+              const datesInGroup = groups[key];
+              const groupTrades = datesInGroup.flatMap(d => data[d]?.trades || []);
+              const groupTotal = groupTrades.reduce((s, t) => s + (t.profit || 0), 0);
+              return (
+                <div key={key}>
+                  {listView !== "일단위" && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 4px 8px" }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: T.blue }}>{fmtGroupLabel(key)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: groupTotal >= 0 ? T.green : T.red }}>
+                        {groupTrades.length}건 · {groupTotal >= 0 ? "+" : "-"}{fmtMoney(groupTotal)}
+                      </span>
+                    </div>
+                  )}
+                  {datesInGroup.map(date => {
+                    const d = data[date] || {};
+                    const trades = d.trades || [];
+                    const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
+                    const tags = [...new Set(trades.map(t => t.tagMedium).filter(Boolean))].slice(0, 4);
+                    return (
+                      <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
+                        <div style={{ padding: "14px 16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tags.length ? 8 : 0 }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 3 }}>{fmtDate(date)} ({fmtW(date)})</div>
+                              <div style={{ fontSize: 12, color: T.sub }}>
+                                종목 {trades.length}건{d.kakaoImages?.length > 0 ? ` · 카톡 ${d.kakaoImages.length}장` : ""}{d.teacherComment ? " · 코멘트 있음" : ""}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              {trades.length > 0 && <div style={{ fontWeight: 700, color: total >= 0 ? T.green : T.red, fontSize: 14 }}>{total >= 0 ? "+" : "-"}{fmtMoney(total)}</div>}
+                              <span style={{ color: T.sub, fontSize: 18 }}>›</span>
+                            </div>
+                          </div>
+                          {tags.length > 0 && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {tags.map(tag => (
+                                <span key={tag} style={{ padding: "3px 9px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue }}>{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+        }
       </div>
-      {dates.map(date => {
-        const d = data[date] || {};
-        const trades = d.trades || [];
-        const total = trades.reduce((s, t) => s + (t.profit || 0), 0);
-        return (
-          <div key={date} onClick={() => openDate(date)} style={{ ...cardStyle({ cursor: "pointer" }) }}>
-            <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 3 }}>{fmtDate(date)} ({fmtW(date)})</div>
-                <div style={{ fontSize: 12, color: T.sub }}>매매 {trades.length}건{d.scenarios?.length > 0 ? ` · 시나리오 ${d.scenarios.length}개` : ""}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {trades.length > 0 && <div style={{ fontWeight: 700, color: total >= 0 ? T.green : T.red, fontSize: 14 }}>{total >= 0 ? "+" : "-"}{fmtMoney(total)}</div>}
-                <span style={{ color: T.sub, fontSize: 18 }}>›</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+    );
+  };
 
   // ──────────── JOURNAL ────────────
   const renderJournal = () => {
