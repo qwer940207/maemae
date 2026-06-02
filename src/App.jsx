@@ -20,7 +20,7 @@ const LARGE_TAGS = ["종배", "시초매매", "장중매매", "스윙"];
 const MEDIUM_TAGS = {
   "종배": ["상따", "양봉종배", "음봉종배", "기타"],
   "시초매매": [],
-  "장중매매": [],
+  "장중매매": ["지지저항", "돌파매매", "투매잡이", "기타"],
   "스윙": [],
 };
 const SMALL_TAGS = {
@@ -1174,9 +1174,16 @@ export default function App() {
                 ))}
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대분류 → 중분류 → 소분류)</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
-                  <select style={inp} value={form.tagLarge} onChange={e => setForm(p => ({ ...p, tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "", tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" }))}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 8 }}>태그 (대분류 → 중분류 → 소분류)</label>
+                <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                  {LARGE_TAGS.map(t => (
+                    <button key={t} onClick={() => setForm(p => ({ ...p, tagLarge: t, tagMedium: MEDIUM_TAGS[t]?.[0] || "", tagSmall: SMALL_TAGS[t]?.[0] || "" }))}
+                      style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${form.tagLarge === t ? T.blue : T.inputBd}`, background: form.tagLarge === t ? "rgba(59,130,246,0.18)" : "transparent", color: form.tagLarge === t ? T.blue : T.sub, fontSize: 13, fontWeight: form.tagLarge === t ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}>
                   <select style={{ ...inp, color: (MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? T.sub : T.text }} value={form.tagMedium} onChange={e => setForm(p => ({ ...p, tagMedium: e.target.value }))} disabled={(MEDIUM_TAGS[form.tagLarge] || []).length === 0}>
                     {(MEDIUM_TAGS[form.tagLarge] || []).length === 0 ? <option value="">-</option> : (MEDIUM_TAGS[form.tagLarge]).map(t => <option key={t}>{t}</option>)}
                   </select>
@@ -1266,9 +1273,16 @@ export default function App() {
                         ))}
                       </div>
                       <div style={{ marginBottom: 12 }}>
-                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>태그 (대분류 → 중분류 → 소분류)</label>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                          <select style={inp} value={ef.tagLarge} onChange={e => setEf({ tagLarge: e.target.value, tagMedium: MEDIUM_TAGS[e.target.value]?.[0] || "", tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" })}>{LARGE_TAGS.map(t => <option key={t}>{t}</option>)}</select>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 8 }}>태그 (대분류 → 중분류 → 소분류)</label>
+                        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                          {LARGE_TAGS.map(t => (
+                            <button key={t} onClick={() => setEf({ tagLarge: t, tagMedium: MEDIUM_TAGS[t]?.[0] || "", tagSmall: SMALL_TAGS[t]?.[0] || "" })}
+                              style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${ef.tagLarge === t ? T.blue : T.inputBd}`, background: ef.tagLarge === t ? "rgba(59,130,246,0.18)" : "transparent", color: ef.tagLarge === t ? T.blue : T.sub, fontSize: 13, fontWeight: ef.tagLarge === t ? 700 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                           <select style={{ ...inp, color: (MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? T.sub : T.text }} value={ef.tagMedium} onChange={e => setEf({ tagMedium: e.target.value })} disabled={(MEDIUM_TAGS[ef.tagLarge] || []).length === 0}>
                             {(MEDIUM_TAGS[ef.tagLarge] || []).length === 0 ? <option value="">-</option> : (MEDIUM_TAGS[ef.tagLarge]).map(t => <option key={t}>{t}</option>)}
                           </select>
