@@ -82,7 +82,7 @@ export default function App() {
   const [kakaoOpen, setKakaoOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, lossReasons: [], chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
@@ -271,8 +271,8 @@ export default function App() {
 
   const saveTrade = () => {
     if (!form.name.trim()) return;
-    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, lossReasons: [], chartImages: [], reason: "", reflection: "" });
+    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, extraTags: form.extraTags || [], lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
     setFormChartIdx(0);
     setShowForm(false);
   };
@@ -1203,6 +1203,30 @@ export default function App() {
                   </select>
                   <Btn style={{ padding: "10px 14px" }} onClick={saveTrade}>추가</Btn>
                 </div>
+                {(form.extraTags || []).map((et, idx) => (
+                  <div key={idx} style={{ marginTop: 8, padding: "8px 10px", background: T.input, borderRadius: 8, border: `1px solid ${T.border}` }}>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      {LARGE_TAGS.map(t => (
+                        <button key={t} onClick={() => { const med = MEDIUM_TAGS[t]?.[0] || ""; const next = [...form.extraTags]; next[idx] = { tagLarge: t, tagMedium: med, tagSmall: SMALL_TAGS[med]?.[0] || "" }; setForm(p => ({ ...p, extraTags: next })); }}
+                          style={{ padding: "3px 10px", borderRadius: 7, border: `1px solid ${et.tagLarge === t ? T.blue : T.inputBd}`, background: et.tagLarge === t ? "rgba(59,130,246,0.18)" : "transparent", color: et.tagLarge === t ? T.blue : T.sub, fontSize: 12, fontWeight: et.tagLarge === t ? 700 : 400, cursor: "pointer" }}>{t}</button>
+                      ))}
+                      <button onClick={() => setForm(p => ({ ...p, extraTags: p.extraTags.filter((_, k) => k !== idx) }))}
+                        style={{ marginLeft: "auto", background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16 }}>×</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <select style={{ ...inp, color: (MEDIUM_TAGS[et.tagLarge] || []).length === 0 ? T.sub : T.text }} value={et.tagMedium} onChange={e => { const next = [...form.extraTags]; next[idx] = { ...et, tagMedium: e.target.value, tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" }; setForm(p => ({ ...p, extraTags: next })); }} disabled={(MEDIUM_TAGS[et.tagLarge] || []).length === 0}>
+                        {(MEDIUM_TAGS[et.tagLarge] || []).length === 0 ? <option value="">-</option> : MEDIUM_TAGS[et.tagLarge].map(t => <option key={t}>{t}</option>)}
+                      </select>
+                      <select style={{ ...inp, color: (SMALL_TAGS[et.tagMedium] || []).length === 0 ? T.sub : T.text }} value={et.tagSmall} onChange={e => { const next = [...form.extraTags]; next[idx] = { ...et, tagSmall: e.target.value }; setForm(p => ({ ...p, extraTags: next })); }} disabled={(SMALL_TAGS[et.tagMedium] || []).length === 0}>
+                        {(SMALL_TAGS[et.tagMedium] || []).length === 0 ? <option value="">-</option> : SMALL_TAGS[et.tagMedium].map(t => <option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={() => setForm(p => ({ ...p, extraTags: [...(p.extraTags || []), { tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL }] }))}
+                  style={{ marginTop: 6, background: "transparent", border: `1px dashed ${T.inputBd}`, borderRadius: 7, padding: "5px 0", color: T.sub, fontSize: 12, cursor: "pointer", width: "100%" }}>
+                  + 매매법 추가
+                </button>
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>손실 이유</label>
@@ -1251,21 +1275,23 @@ export default function App() {
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
-              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "종배", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
+              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "종배", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", extraTags: trade.extraTags || [], lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
               const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...(p[trade.id] ?? ef), ...patch } }));
               const savEdit = () => {
-                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, lossReasons: ef.lossReasons, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
+                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, extraTags: ef.extraTags || [], lossReasons: ef.lossReasons, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
                 upd({ trades: trades.map(t => t.id === trade.id ? updated : t) });
                 setExpandedId(null);
               };
               return (
                 <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8, overflow: "hidden" }}>
-                  <div onClick={() => { setExpandedId(exp ? null : trade.id); if (!exp) setEditForms(p => ({ ...p, [trade.id]: { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" } })); }} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+                  <div onClick={() => { setExpandedId(exp ? null : trade.id); if (!exp) setEditForms(p => ({ ...p, [trade.id]: { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", extraTags: trade.extraTags || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" } })); }} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{truncName(trade.name)}</div>
-                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{[trade.tagSmall, trade.tagMedium].filter(v => v && v !== "소분류 없음").join(" ")}</span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
+                          {[[trade.tagSmall, trade.tagMedium], ...(trade.extraTags || []).map(et => [et.tagSmall, et.tagMedium])].map((pair, idx) => { const label = pair.filter(v => v && v !== "소분류 없음").join(" "); return label ? <span key={idx} style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue }}>{label}</span> : null; })}
+                        </div>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1301,6 +1327,30 @@ export default function App() {
                             {(SMALL_TAGS[ef.tagMedium] || []).length === 0 ? <option value="">-</option> : (SMALL_TAGS[ef.tagMedium]).map(t => <option key={t}>{t}</option>)}
                           </select>
                         </div>
+                        {(ef.extraTags || []).map((et, idx) => (
+                          <div key={idx} style={{ marginTop: 8, padding: "8px 10px", background: T.input, borderRadius: 8, border: `1px solid ${T.border}` }}>
+                            <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap", alignItems: "center" }}>
+                              {LARGE_TAGS.map(t => (
+                                <button key={t} onClick={() => { const med = MEDIUM_TAGS[t]?.[0] || ""; const next = [...(ef.extraTags || [])]; next[idx] = { tagLarge: t, tagMedium: med, tagSmall: SMALL_TAGS[med]?.[0] || "" }; setEf({ extraTags: next }); }}
+                                  style={{ padding: "3px 10px", borderRadius: 7, border: `1px solid ${et.tagLarge === t ? T.blue : T.inputBd}`, background: et.tagLarge === t ? "rgba(59,130,246,0.18)" : "transparent", color: et.tagLarge === t ? T.blue : T.sub, fontSize: 12, fontWeight: et.tagLarge === t ? 700 : 400, cursor: "pointer" }}>{t}</button>
+                              ))}
+                              <button onClick={() => setEf({ extraTags: (ef.extraTags || []).filter((_, k) => k !== idx) })}
+                                style={{ marginLeft: "auto", background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16 }}>×</button>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <select style={{ ...inp, color: (MEDIUM_TAGS[et.tagLarge] || []).length === 0 ? T.sub : T.text }} value={et.tagMedium} onChange={e => { const next = [...(ef.extraTags || [])]; next[idx] = { ...et, tagMedium: e.target.value, tagSmall: SMALL_TAGS[e.target.value]?.[0] || "" }; setEf({ extraTags: next }); }} disabled={(MEDIUM_TAGS[et.tagLarge] || []).length === 0}>
+                                {(MEDIUM_TAGS[et.tagLarge] || []).length === 0 ? <option value="">-</option> : MEDIUM_TAGS[et.tagLarge].map(t => <option key={t}>{t}</option>)}
+                              </select>
+                              <select style={{ ...inp, color: (SMALL_TAGS[et.tagMedium] || []).length === 0 ? T.sub : T.text }} value={et.tagSmall} onChange={e => { const next = [...(ef.extraTags || [])]; next[idx] = { ...et, tagSmall: e.target.value }; setEf({ extraTags: next }); }} disabled={(SMALL_TAGS[et.tagMedium] || []).length === 0}>
+                                {(SMALL_TAGS[et.tagMedium] || []).length === 0 ? <option value="">-</option> : SMALL_TAGS[et.tagMedium].map(t => <option key={t}>{t}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={() => setEf({ extraTags: [...(ef.extraTags || []), { tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL }] })}
+                          style={{ marginTop: 6, background: "transparent", border: `1px dashed ${T.inputBd}`, borderRadius: 7, padding: "5px 0", color: T.sub, fontSize: 12, cursor: "pointer", width: "100%" }}>
+                          + 매매법 추가
+                        </button>
                       </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>손실 이유</label>
