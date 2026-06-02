@@ -487,7 +487,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
             <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
-            <Tag label={[t.tagSmall, t.tagMedium].filter(Boolean).join(" ")} pos={pos} />
+            <Tag label={[t.tagSmall, t.tagMedium].filter(v => v && v !== "소분류 없음").join(" ")} pos={pos} />
           </div>
           <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
         </div>
@@ -1265,7 +1265,7 @@ export default function App() {
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{truncName(trade.name)}</div>
-                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{[trade.tagSmall, trade.tagMedium].filter(Boolean).join(" ")}</span>
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue, marginTop: 2 }}>{[trade.tagSmall, trade.tagMedium].filter(v => v && v !== "소분류 없음").join(" ")}</span>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
