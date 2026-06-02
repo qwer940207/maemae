@@ -841,12 +841,14 @@ export default function App() {
               const scName = typeof sc === "object" ? (sc.name || "") : "";
               const scText = typeof sc === "string" ? sc : (sc.content || sc.text || "");
               const executed = typeof sc === "object" ? (sc.executed ?? null) : null;
+              const correct = typeof sc === "object" ? (sc.correct ?? null) : null;
               const resultComment = typeof sc === "object" ? (sc.resultComment || "") : "";
               const updSc = (patch) => {
                 const next = j.scenarios.map((s, k) => k !== i ? s : {
                   name: typeof s === "object" ? (s.name || "") : "",
                   content: typeof s === "string" ? s : (s.content || s.text || ""),
                   executed: typeof s === "object" ? (s.executed ?? null) : null,
+                  correct: typeof s === "object" ? (s.correct ?? null) : null,
                   resultComment: typeof s === "object" ? (s.resultComment || "") : "",
                   ...patch
                 });
@@ -898,12 +900,21 @@ export default function App() {
                             style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1 }}>×</button>
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: T.sub, marginRight: 2 }}>실행 결과</span>
-                        <button onClick={() => updSc({ executed: executed === true ? null : true })}
-                          style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === true ? T.green : T.inputBd}`, background: executed === true ? "rgba(34,197,94,0.15)" : "transparent", color: executed === true ? T.green : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>O</button>
-                        <button onClick={() => updSc({ executed: executed === false ? null : false })}
-                          style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === false ? T.red : T.inputBd}`, background: executed === false ? "rgba(239,68,68,0.15)" : "transparent", color: executed === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
+                      <div style={{ display: "flex", gap: 16, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: T.sub }}>실행 결과</span>
+                          <button onClick={() => updSc({ executed: executed === true ? null : true })}
+                            style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === true ? T.green : T.inputBd}`, background: executed === true ? "rgba(34,197,94,0.15)" : "transparent", color: executed === true ? T.green : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>O</button>
+                          <button onClick={() => updSc({ executed: executed === false ? null : false })}
+                            style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${executed === false ? T.red : T.inputBd}`, background: executed === false ? "rgba(239,68,68,0.15)" : "transparent", color: executed === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: T.sub }}>시장 맞았음</span>
+                          <button onClick={() => updSc({ correct: correct === true ? null : true })}
+                            style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${correct === true ? T.green : T.inputBd}`, background: correct === true ? "rgba(34,197,94,0.15)" : "transparent", color: correct === true ? T.green : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>O</button>
+                          <button onClick={() => updSc({ correct: correct === false ? null : false })}
+                            style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${correct === false ? T.red : T.inputBd}`, background: correct === false ? "rgba(239,68,68,0.15)" : "transparent", color: correct === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
+                        </div>
                       </div>
                       {resultComment ? (
                         <div style={{ marginTop: 8, fontSize: 12, color: T.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", background: T.input, borderRadius: 6, padding: "7px 10px", border: `1px solid ${T.border}` }}>
