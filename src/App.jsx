@@ -761,7 +761,12 @@ export default function App() {
                       }
                     });
                     if (cur !== null) chunks.push(cur.trim());
-                    upd({ teacherComment: chunks.join("\n") || raw });
+                    const pasteText = chunks.join("\n") || raw;
+                    const ta = e.target;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const current = j.teacherComment || "";
+                    upd({ teacherComment: current.slice(0, start) + pasteText + current.slice(end) });
                   }}
                   style={{ ...inp, minHeight: 400, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
               </div>
