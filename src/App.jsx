@@ -16,7 +16,7 @@ const storage = {
   },
 };
 
-const LARGE_TAGS = ["양봉", "상따", "음봉", "장중", "공시"];
+const LARGE_TAGS = ["종배", "시초매매", "장중매매", "스윙"];
 const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
@@ -70,7 +70,7 @@ export default function App() {
   const [kakaoOpen, setKakaoOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
@@ -223,7 +223,7 @@ export default function App() {
   const saveTrade = () => {
     if (!form.name.trim()) return;
     upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "양봉", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" });
     setFormChartIdx(0);
     setShowForm(false);
   };
@@ -526,7 +526,7 @@ export default function App() {
         const dateStr = json.date;
         const newDates = dates.includes(dateStr) ? dates : [...dates, dateStr].sort((a, b) => b.localeCompare(a));
         const existing = data[dateStr] || { scenarios: [], kakaoImages: [], teacherComment: "", trades: [] };
-        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "양봉", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
+        const newTrades = json.trades.map(t => ({ id: Date.now() + Math.random(), name: t.name, profit: t.profit, returnRate: t.returnRate, tagLarge: "종배", tagMedium: "", tagSmall: "", lossReasons: [], chartImages: [], reason: "", reflection: "" }));
         const newData = { ...data, [dateStr]: { ...existing, trades: [...existing.trades, ...newTrades] } };
         setDates(newDates);
         setData(newData);
@@ -1003,7 +1003,7 @@ export default function App() {
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
-              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "양봉", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
+              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "종배", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
               const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...(p[trade.id] ?? ef), ...patch } }));
               const savEdit = () => {
                 const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, lossReasons: ef.lossReasons, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
