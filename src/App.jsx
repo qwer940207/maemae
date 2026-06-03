@@ -80,11 +80,11 @@ export default function App() {
   const [data, setData] = useState(INIT_DATA);
   const [dates, setDates] = useState(INIT_DATES);
   const [trash, setTrash] = useState({});
-  const [kakaoOpen, setKakaoOpen] = useState(true);
-  const [scenarioOpen, setScenarioOpen] = useState(true);
-  const [tradeVolOpen, setTradeVolOpen] = useState(true);
-  const [tradesOpen, setTradesOpen] = useState(true);
-  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [kakaoOpen, setKakaoOpen] = useState(false);
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [tradeVolOpen, setTradeVolOpen] = useState(false);
+  const [tradesOpen, setTradesOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
