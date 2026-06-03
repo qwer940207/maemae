@@ -82,7 +82,7 @@ const T = {
   text: "#1a2035", sub: "#7a87a6", green: "#0ea869", red: "#e53e52", blue: "#2563eb",
   profit: "#e53e52", loss: "#2563eb",
 };
-const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, fontWeight: 400, outline: "none", width: "100%", boxSizing: "border-box" };
+const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 15, fontWeight: 400, lineHeight: 1.9, outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "'Noto Sans KR', sans-serif" };
 
 const Btn = ({ variant = "primary", style: s = {}, children, ...rest }) => (
   <button style={{
@@ -2117,7 +2117,7 @@ export default function App() {
 
   // ──────────── MAIN ────────────
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Noto Sans KR', sans-serif", fontSize: 14 }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Noto Sans KR', sans-serif", fontSize: 15, lineHeight: 1.9, fontWeight: 400 }}>
       {renderCalendar()}
       {renderDashCalendar()}
       {renderAttendance()}
