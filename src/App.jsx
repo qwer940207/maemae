@@ -1004,7 +1004,7 @@ export default function App() {
           <div style={hdStyle()}>
             <span style={{ fontSize: 17 }}>📈</span>
             <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
-            <span style={{ fontSize: 11, color: T.sub }}>클릭 또는 Ctrl+V로 사진 첨부</span>
+            <span style={{ fontSize: 11, color: T.sub }}>전일 거래대금과 관심종목</span>
           </div>
           <div style={{ padding: 16, display: "flex", gap: 12 }}>
             {[
