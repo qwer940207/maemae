@@ -449,7 +449,7 @@ export default function App() {
               const dow = (firstDow + cell.day - 1) % 7;
               return (
                 <div key={i} onClick={() => selectCalDate(calYear, calMonth, cell.day)}
-                  style={{ textAlign: "center", padding: "9px 0", fontSize: 13, cursor: "pointer", borderRadius: 8, position: "relative", fontWeight: hasEntry || isToday ? 700 : 400, color: isToday ? "#fff" : dow === 0 ? T.red : dow === 6 ? T.blue : T.text, background: isToday ? T.tabActive : hasEntry ? "#1c2840" : "transparent" }}>
+                  style={{ textAlign: "center", padding: "9px 0", fontSize: 13, cursor: "pointer", borderRadius: 8, position: "relative", fontWeight: hasEntry || isToday ? 700 : 400, color: isToday ? "#fff" : dow === 0 ? T.red : dow === 6 ? T.blue : T.text, background: isToday ? T.tabActive : hasEntry ? "#dbeafe" : "transparent" }}>
                   {cell.day}
                   {hasEntry && !isToday && <div style={{ position: "absolute", bottom: 3, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: "50%", background: T.green }} />}
                 </div>
@@ -557,7 +557,7 @@ export default function App() {
               const dow = (firstDow + cell.day - 1) % 7;
               return (
                 <div key={i} onClick={() => selectDate(cell.day)}
-                  style={{ textAlign:"center", padding:"9px 0", fontSize:13, cursor:"pointer", borderRadius:8, fontWeight:isStart||isEnd?700:400, color:isStart||isEnd?"#fff":dow===0?T.red:dow===6?T.blue:T.text, background:isStart||isEnd?T.tabActive:inRange?"#1c2840":"transparent" }}>
+                  style={{ textAlign:"center", padding:"9px 0", fontSize:13, cursor:"pointer", borderRadius:8, fontWeight:isStart||isEnd?700:400, color:isStart||isEnd?"#fff":dow===0?T.red:dow===6?T.blue:T.text, background:isStart||isEnd?T.tabActive:inRange?"#eff6ff":"transparent" }}>
                   {cell.day}
                 </div>
               );
@@ -2083,7 +2083,7 @@ export default function App() {
               return (
                 <div key={i} onClick={() => !isFuture && setAttendDate(isSelected ? null : ds)}
                   style={{ textAlign: "center", padding: "5px 0", cursor: isFuture ? "default" : "pointer", borderRadius: 8,
-                    background: isSelected ? T.tabActive : isToday ? "#1c2840" : "transparent", opacity: isFuture ? 0.25 : 1 }}>
+                    background: isSelected ? T.tabActive : isToday ? "#dbeafe" : "transparent", opacity: isFuture ? 0.25 : 1 }}>
                   <div style={{ fontSize: 13, fontWeight: isToday ? 700 : 400, color: isSelected ? "#fff" : dow===0 ? T.red : dow===6 ? T.blue : T.text }}>{cell.day}</div>
                   <div style={{ fontSize: 10, lineHeight: 1.2, minHeight: 13, color: mark?.color }}>{mark?.char || ""}</div>
                 </div>
@@ -2143,7 +2143,7 @@ export default function App() {
           <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
             {NAV_TABS.map(t => (
               <button key={t.id} onClick={() => { setTab(t.id); if (t.id === "매매일지") setView("list"); }}
-                style={{ padding: "10px 16px", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#fff" : T.sub, background: "transparent", border: "none", borderBottom: tab === t.id ? `2px solid ${T.tabActive}` : "2px solid transparent", marginBottom: -1, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "color 0.2s" }}>
+                style={{ padding: "10px 16px", fontSize: 13, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? T.blue : T.sub, background: "transparent", border: "none", borderBottom: tab === t.id ? `2px solid ${T.tabActive}` : "2px solid transparent", marginBottom: -1, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", transition: "color 0.2s" }}>
                 {t.icon} {t.id}
               </button>
             ))}
