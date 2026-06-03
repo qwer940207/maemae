@@ -1,18 +1,66 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabase";
 
-const DB_ID = 1; // 단일 행으로 전체 데이터 관리
+const DB_ID = 1;
+const DB_ID2 = 2; // 보관 데이터 (오래된 날짜)
+const SB_URL = "https://hnefzxuyuvbxfaoubgxu.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuZWZ6eHV5dXZieGZhb3ViZ3h1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMzQyMzksImV4cCI6MjA5NTgxMDIzOX0.O5clgY7OjobKqr8xFI483dF-8VgJ3LjR_WhduSFnlAs";
+const SB_HDR = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
+
+// 날 기준으로 최근 N일 이전은 보관 처리
+const ARCHIVE_BEFORE_DAYS = 60;
+
+async function rawGet(ids) {
+  const r = await fetch(`${SB_URL}/rest/v1/maemae?id=in.(${ids.join(",")})&select=id,data`, { headers: SB_HDR });
+  return r.json();
+}
+async function rawUpsert(id, data) {
+  const body = JSON.stringify({ id, data });
+  const r = await fetch(`${SB_URL}/rest/v1/maemae`, {
+    method: "POST",
+    headers: { ...SB_HDR, Prefer: "resolution=merge-duplicates" },
+    body
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error(`Save failed ${r.status}: ${t}`); }
+}
 
 const storage = {
   get: async () => {
     try {
-      const { data } = await supabase.from("maemae").select("data").eq("id", DB_ID).single();
-      return data?.data ?? null;
+      const rows = await rawGet([DB_ID, DB_ID2]);
+      const row1 = rows.find(r => r.id === DB_ID)?.data ?? null;
+      const row2 = rows.find(r => r.id === DB_ID2)?.data ?? null;
+      if (!row1) return null;
+      if (row2?.data) {
+        // 보관 데이터와 최근 데이터 합치기
+        return {
+          ...row1,
+          data: { ...row2.data, ...(row1.data || {}) },
+          dates: [...new Set([...(row2.dates || []), ...(row1.dates || [])])].sort((a, b) => b.localeCompare(a)),
+        };
+      }
+      return row1;
     } catch { return null; }
   },
   set: async (value) => {
-    const { error } = await supabase.from("maemae").upsert({ id: DB_ID, data: value });
-    if (error) throw new Error(error.message);
+    // 오래된 날짜는 Row 2에, 최근 날짜는 Row 1에 저장
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ARCHIVE_BEFORE_DAYS);
+    const cutoffStr = cutoff.toISOString().split("T")[0];
+
+    const recentDates = (value.dates || []).filter(d => d >= cutoffStr);
+    const archiveDates = (value.dates || []).filter(d => d < cutoffStr);
+
+    const recentData = Object.fromEntries(Object.entries(value.data || {}).filter(([d]) => d >= cutoffStr));
+    const archiveData = Object.fromEntries(Object.entries(value.data || {}).filter(([d]) => d < cutoffStr));
+
+    // Row 1: 최근 데이터 + 모든 메타데이터
+    const row1 = { ...value, data: recentData, dates: recentDates };
+    // Row 2: 보관 데이터 (오래된 날짜만)
+    const row2 = { data: archiveData, dates: archiveDates };
+
+    await rawUpsert(DB_ID, row1);
+    if (archiveDates.length > 0) await rawUpsert(DB_ID2, row2);
   },
 };
 
