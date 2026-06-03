@@ -154,6 +154,7 @@ export default function App() {
   const [editingExpertIdx, setEditingExpertIdx] = useState(null);
   const [editingExpertImages, setEditingExpertImages] = useState([]);
   const [editingExpertComment, setEditingExpertComment] = useState("");
+  const editExpertPasteRef = useRef(null);
   const [expertOpen, setExpertOpen] = useState(false);
   const focusedImgFieldRef = useRef(null);
   const [knowledgeDocs, setKnowledgeDocs] = useState([]);
@@ -297,6 +298,13 @@ export default function App() {
     }, 2000);
     return () => clearTimeout(t);
   }, [kDirty, knowledgeDocs, data, dates, trash]);
+
+  // 고수의 매매일지 수정 모드 열릴 때 paste 영역 자동 포커스
+  useEffect(() => {
+    if (editingExpertIdx !== null) {
+      setTimeout(() => editExpertPasteRef.current?.focus(), 50);
+    }
+  }, [editingExpertIdx]);
 
   // 블록 높이 자동 조정 (문서 전환 시)
   useEffect(() => {
@@ -1246,7 +1254,7 @@ export default function App() {
                               ))}
                             </div>
                           )}
-                          <div tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, outline: "none", cursor: "default" }}>
+                          <div ref={editExpertPasteRef} tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, outline: "none", cursor: "default" }}>
                             📋 클릭 후 Ctrl+V
                           </div>
                         </div>
