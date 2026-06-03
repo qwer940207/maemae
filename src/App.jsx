@@ -76,11 +76,11 @@ const readImg = (file, cb) => {
 };
 
 const T = {
-  bg: "linear-gradient(160deg, #0b0f1a 0%, #0e1220 60%, #0b0f1a 100%)",
-  card: "#161b27", card2: "#0f1320", border: "#1e2538",
-  input: "#191f2e", inputBd: "#263050", tabActive: "#2563eb",
-  text: "#ccd3ec", sub: "#576080", green: "#1fca7d", red: "#e95c6e", blue: "#5b7cf8",
-  profit: "#e95c6e", loss: "#5b7cf8",
+  bg: "#f0f4f9",
+  card: "#ffffff", card2: "#f4f7fc", border: "#dde3ef",
+  input: "#f0f4f9", inputBd: "#c8d0e0", tabActive: "#2563eb",
+  text: "#1a2035", sub: "#7a87a6", green: "#0ea869", red: "#e53e52", blue: "#2563eb",
+  profit: "#e53e52", loss: "#2563eb",
 };
 const inp = { background: T.input, border: `1px solid ${T.inputBd}`, borderRadius: 8, padding: "10px 12px", color: T.text, fontSize: 14, fontWeight: 600, outline: "none", width: "100%", boxSizing: "border-box" };
 
@@ -403,7 +403,7 @@ export default function App() {
     setShowForm(false);
   };
 
-  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, marginBottom: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.25)", ...e });
+  const cardStyle = (e = {}) => ({ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, marginBottom: 16, overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", ...e });
   const hdStyle = (e = {}) => ({ padding: "13px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8, ...e });
 
   const getTimeLeft = (deletedAt) => {
@@ -431,8 +431,8 @@ export default function App() {
     const prevMonth = () => calMonth === 0 ? (setCalYear(y => y - 1), setCalMonth(11)) : setCalMonth(m => m - 1);
     const nextMonth = () => calMonth === 11 ? (setCalYear(y => y + 1), setCalMonth(0)) : setCalMonth(m => m + 1);
     return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowCal(false)}>
-        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 320, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowCal(false)}>
+        <div style={{ background: "#ffffff", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 320, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <button onClick={prevMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px", lineHeight: 1 }}>‹</button>
             <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{calYear}년 {MONTHS[calMonth]}</span>
@@ -468,8 +468,8 @@ export default function App() {
     if (!showTrash) return null;
     const trashDates = Object.keys(trash).sort((a, b) => b.localeCompare(a));
     return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => { setShowTrash(false); setConfirmPermDelete(null); }}>
-        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, width: 380, maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => { setShowTrash(false); setConfirmPermDelete(null); }}>
+        <div style={{ background: "#ffffff", borderRadius: 16, border: `1px solid ${T.border}`, width: 380, maxWidth: "95vw", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
           <div style={{ padding: "18px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 18 }}>🗑️</span>
@@ -502,7 +502,7 @@ export default function App() {
                         </div>
                       : <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={() => restoreDate(date)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>복원</button>
-                          <button onClick={() => setConfirmPermDelete(date)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#1f0d0d", color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>영구 삭제</button>
+                          <button onClick={() => setConfirmPermDelete(date)} style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: "#fef2f2", color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>영구 삭제</button>
                         </div>}
                   </div>
                 );
@@ -535,8 +535,8 @@ export default function App() {
       setDashCalOpen(null);
     };
     return (
-      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }} onClick={() => setDashCalOpen(null)}>
-        <div style={{ background:"#1a1f30", borderRadius:16, border:`1px solid ${T.border}`, padding:"20px", width:320, boxShadow:"0 20px 60px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }} onClick={() => setDashCalOpen(null)}>
+        <div style={{ background:"#ffffff", borderRadius:16, border:`1px solid ${T.border}`, padding:"20px", width:320, boxShadow:"0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
           <div style={{ textAlign:"center", fontSize:13, fontWeight:600, color:T.blue, marginBottom:12 }}>
             {dashCalOpen === "start" ? "🗓 시작일 선택" : "🗓 종료일 선택"}
           </div>
@@ -599,7 +599,7 @@ export default function App() {
     const top5l = merged.filter(t => t.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
     const recent = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
     const StatCard = ({ label, value, color, icon }) => (
-      <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.25)" }}>
+      <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
           {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
           <div style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{label}</div>
@@ -627,7 +627,7 @@ export default function App() {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {["전체", "이번달", "지난달", "최근3개월", "직접입력"].map(p => (
               <button key={p} onClick={() => setDashPeriod(p)}
-                style={{ padding: "6px 14px", borderRadius: 20, border: `1px solid ${dashPeriod === p ? T.tabActive : T.inputBd}`, background: dashPeriod === p ? "#1a2d50" : "transparent", color: dashPeriod === p ? T.blue : T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                style={{ padding: "6px 14px", borderRadius: 20, border: `1px solid ${dashPeriod === p ? T.tabActive : T.inputBd}`, background: dashPeriod === p ? "#dbeafe" : "transparent", color: dashPeriod === p ? T.blue : T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 {p}
               </button>
             ))}
@@ -721,9 +721,9 @@ export default function App() {
   const renderImportModal = () => {
     if (!showImportModal) return null;
     return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
         onClick={closeImportModal}>
-        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "28px 24px", width: 400, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", textAlign: "center" }}
+        <div style={{ background: "#ffffff", borderRadius: 16, border: `1px solid ${T.border}`, padding: "28px 24px", width: 400, maxWidth: "95vw", boxShadow: "0 8px 32px rgba(0,0,0,0.12)", textAlign: "center" }}
           onClick={e => e.stopPropagation()}
           onPaste={e => {
             const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith("image/"));
@@ -746,7 +746,7 @@ export default function App() {
             </>
           ) : (
             <>
-              <img src={importPreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 16, maxHeight: 260, objectFit: "contain", background: "#0d1018" }} />
+              <img src={importPreview} alt="preview" style={{ width: "100%", borderRadius: 10, marginBottom: 16, maxHeight: 260, objectFit: "contain", background: "#f0f4f9" }} />
               {parseMsg
                 ? <div style={{ fontSize: 14, fontWeight: 700, color: parseMsg.includes("✓") ? T.green : T.red, marginBottom: 12 }}>{parseMsg}</div>
                 : <div style={{ display: "flex", gap: 10 }}>
@@ -892,7 +892,7 @@ export default function App() {
                           {tags.length > 0 && (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                               {tags.map(tag => (
-                                <span key={tag} style={{ padding: "3px 9px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue }}>{tag}</span>
+                                <span key={tag} style={{ padding: "3px 9px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#e8edf6", color: T.blue }}>{tag}</span>
                               ))}
                             </div>
                           )}
@@ -937,7 +937,7 @@ export default function App() {
                     <>
                       <button onClick={() => hasPrev && openDate(dates[idx + 1])} disabled={!hasPrev}
                         style={{ background: "none", border: `1px solid ${hasPrev ? T.inputBd : "transparent"}`, borderRadius: 6, padding: "4px 10px", color: hasPrev ? T.sub : "transparent", fontSize: 14, cursor: hasPrev ? "pointer" : "default" }}>‹</button>
-                      <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+                      <div style={{ fontWeight: 800, fontSize: 20, color: "#1a2035" }}>{fmtDate(selDate)}</div>
                       <button onClick={() => hasNext && openDate(dates[idx - 1])} disabled={!hasNext}
                         style={{ background: "none", border: `1px solid ${hasNext ? T.inputBd : "transparent"}`, borderRadius: 6, padding: "4px 10px", color: hasNext ? T.sub : "transparent", fontSize: 14, cursor: hasNext ? "pointer" : "default" }}>›</button>
                     </>
@@ -1235,7 +1235,7 @@ export default function App() {
                     const current = j.teacherComment || "";
                     upd({ teacherComment: current.slice(0, start) + pasteText + current.slice(end) });
                   }}
-                  style={{ ...inp, minHeight: 400, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#8fa3be" }} placeholder="선생님 코멘트를 입력하세요..." />
+                  style={{ ...inp, minHeight: 400, resize: "vertical", lineHeight: 1.85, fontSize: 12.5, color: "#4a5568" }} placeholder="선생님 코멘트를 입력하세요..." />
               </div>
             </div>
           )}
@@ -1387,7 +1387,7 @@ export default function App() {
           </div>
           {tradesOpen && showForm && (
             <div style={{ padding: 16, borderBottom: `1px solid ${T.border}` }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#dce5ff" }}>새 종목</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#1a2035" }}>새 종목</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 12 }}>
                 {[["종목명","name",""],["수익률 (%)","returnRate",""],["수익금 (원)","profit",""]].map(([label,key,ph]) => (
                   <div key={key}><label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>{label}</label><input style={inp} placeholder={ph} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} /></div>
@@ -1495,11 +1495,11 @@ export default function App() {
                 <div key={trade.id} style={{ background: T.card2, borderRadius: 10, border: `1px solid ${T.border}`, marginBottom: 8, overflow: "hidden" }}>
                   <div onClick={() => { setExpandedId(exp ? null : trade.id); if (!exp) setEditForms(p => ({ ...p, [trade.id]: { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "기타", tagMedium: trade.tagMedium || "기타", tagSmall: trade.tagSmall || "소분류 없음", extraTags: trade.extraTags || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" } })); }} style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#1b2240", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#e8edf6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: T.sub }}>{trade.name?.[0] || "?"}</div>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{truncName(trade.name)}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
-                          {[[trade.tagSmall, trade.tagMedium], ...(trade.extraTags || []).map(et => [et.tagSmall, et.tagMedium])].map((pair, idx) => { const label = pair.filter(v => v && v !== "소분류 없음").join(" "); return label ? <span key={idx} style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#152040", color: T.blue }}>{label}</span> : null; })}
+                          {[[trade.tagSmall, trade.tagMedium], ...(trade.extraTags || []).map(et => [et.tagSmall, et.tagMedium])].map((pair, idx) => { const label = pair.filter(v => v && v !== "소분류 없음").join(" "); return label ? <span key={idx} style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: "#e8edf6", color: T.blue }}>{label}</span> : null; })}
                         </div>
                       </div>
                     </div>
@@ -1642,8 +1642,8 @@ export default function App() {
 
         {/* 삭제 확인 모달 */}
         {showDeleteConfirm && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowDeleteConfirm(false)}>
-            <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "28px 24px", width: 300, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowDeleteConfirm(false)}>
+            <div style={{ background: "#ffffff", borderRadius: 16, border: `1px solid ${T.border}`, padding: "28px 24px", width: 300, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>🗑️</div>
               <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 8 }}>일지를 삭제할까요?</div>
               <div style={{ fontSize: 13, color: T.sub, marginBottom: 6 }}>{fmtDate(selDate)}</div>
@@ -1756,7 +1756,7 @@ export default function App() {
                         <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
                           <img src={block.content} alt="" onClick={() => setLightbox(block.content)} style={{ maxWidth: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
                           <button onClick={() => { if (window.confirm("이 이미지를 삭제하시겠어요?")) kUpdBlock(block.id, { content: "" }); }}
-                            style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%", width: 24, height: 24, color: "#fff", fontSize: 13, cursor: "pointer" }}>×</button>
+                            style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.3)", border: "none", borderRadius: "50%", width: 24, height: 24, color: "#fff", fontSize: 13, cursor: "pointer" }}>×</button>
                         </div>
                       ) : (
                         <div tabIndex={0}
@@ -1926,7 +1926,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
               {["일별", "주별", "월별"].map(p => (
                 <button key={p} onClick={() => setAnalysisPeriod(p)}
-                  style={{ padding: "6px 16px", borderRadius: 20, border: `1px solid ${analysisPeriod === p ? T.tabActive : T.inputBd}`, background: analysisPeriod === p ? "#1a2d50" : "transparent", color: analysisPeriod === p ? T.blue : T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  style={{ padding: "6px 16px", borderRadius: 20, border: `1px solid ${analysisPeriod === p ? T.tabActive : T.inputBd}`, background: analysisPeriod === p ? "#dbeafe" : "transparent", color: analysisPeriod === p ? T.blue : T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   {p}
                 </button>
               ))}
@@ -2047,9 +2047,9 @@ export default function App() {
     };
 
     return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
         onClick={() => { setShowAttendance(false); setAttendDate(null); }}>
-        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 360, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
+        <div style={{ background: "#ffffff", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 360, maxWidth: "95vw", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
           onClick={e => e.stopPropagation()}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2133,7 +2133,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
-              <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: "#1a2035" }}>주식 매매일지</span>
             </div>
             <button onClick={() => setShowAttendance(true)}
               style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
