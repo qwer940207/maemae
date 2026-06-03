@@ -35,7 +35,8 @@ const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
   { id: "매매일지", icon: "📋" },
   { id: "매매분석", icon: "📈" },
-  { id: "강의록", icon: "📚" }
+  { id: "강의록", icon: "📚" },
+  { id: "지식창고", icon: "📖" }
 ];
 
 const INIT_DATES = ["2026-06-01", "2026-05-31", "2026-05-30"];
@@ -119,6 +120,12 @@ export default function App() {
   const [editForms, setEditForms] = useState({});
   const [formChartIdx, setFormChartIdx] = useState(0);
   const [attendance, setAttendance] = useState({});
+  const [knowledge, setKnowledge] = useState([]);
+  const [knView, setKnView] = useState("list");
+  const [selKn, setSelKn] = useState(null);
+  const [knSearch, setKnSearch] = useState("");
+  const [knForm, setKnForm] = useState({ title: "", content: "", category: "" });
+  const [knDirty, setKnDirty] = useState(false);
   const [showAttendance, setShowAttendance] = useState(false);
   const [attendCalYear, setAttendCalYear] = useState(new Date().getFullYear());
   const [attendCalMonth, setAttendCalMonth] = useState(new Date().getMonth());
@@ -154,6 +161,7 @@ export default function App() {
           if (p.data) setData(p.data);
           if (p.dates) setDates(p.dates);
           if (p.attendance) setAttendance(p.attendance);
+          if (p.knowledge) setKnowledge(p.knowledge);
           if (p.trash) {
             const now = Date.now();
             const cleaned = Object.fromEntries(
@@ -204,8 +212,8 @@ export default function App() {
 
   const j = selDate ? data[selDate] : null;
 
-  const save = async (d, dl, tr, att = attendance) => {
-    await storage.set({ data: d, dates: dl, trash: tr, attendance: att });
+  const save = async (d, dl, tr, att = attendance, kn = knowledge) => {
+    await storage.set({ data: d, dates: dl, trash: tr, attendance: att, knowledge: kn });
   };
 
   const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
@@ -1665,6 +1673,111 @@ export default function App() {
     );
   };
 
+  // ──────────── KNOWLEDGE ────────────
+  const renderKnowledge = () => {
+    const saveKn = async (newKn) => {
+      try { await storage.set({ data, dates, trash, attendance, knowledge: newKn }); } catch {}
+    };
+
+    const openDoc = (id) => {
+      const doc = knowledge.find(d => d.id === id);
+      if (!doc) return;
+      setKnForm({ title: doc.title, content: doc.content, category: doc.category || "" });
+      setSelKn(id); setKnView("doc"); setKnDirty(false);
+    };
+
+    const openNew = () => {
+      setKnForm({ title: "", content: "", category: "" });
+      setSelKn(null); setKnView("doc"); setKnDirty(false);
+    };
+
+    const goBackKn = () => {
+      if (knDirty && !window.confirm("저장하지 않은 내용이 있어요.\n나가시겠어요?")) return;
+      setKnView("list"); setKnDirty(false);
+    };
+
+    const saveDoc = async () => {
+      if (!knForm.title.trim()) return alert("제목을 입력해주세요.");
+      let newKn;
+      if (selKn) {
+        newKn = knowledge.map(d => d.id === selKn ? { ...d, title: knForm.title, content: knForm.content, category: knForm.category, updatedAt: Date.now() } : d);
+      } else {
+        const newDoc = { id: Date.now(), title: knForm.title, content: knForm.content, category: knForm.category, createdAt: Date.now(), updatedAt: Date.now() };
+        newKn = [...knowledge, newDoc];
+        setSelKn(newDoc.id);
+      }
+      setKnowledge(newKn);
+      setKnDirty(false);
+      await saveKn(newKn);
+    };
+
+    const deleteDoc = async () => {
+      if (!window.confirm("이 문서를 삭제할까요?")) return;
+      const newKn = knowledge.filter(d => d.id !== selKn);
+      setKnowledge(newKn);
+      setKnView("list");
+      await saveKn(newKn);
+    };
+
+    const filtered = knowledge.filter(d =>
+      !knSearch.trim() || d.title.toLowerCase().includes(knSearch.toLowerCase()) || d.content.toLowerCase().includes(knSearch.toLowerCase())
+    ).sort((a, b) => b.updatedAt - a.updatedAt);
+
+    if (knView === "doc") return (
+      <div style={{ padding: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <button onClick={goBackKn} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 13px", fontSize: 13, color: T.sub, cursor: "pointer" }}>← 목록</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {knDirty && <span style={{ fontSize: 12, color: T.sub }}>● 저장 안 됨</span>}
+            {selKn && <button onClick={deleteDoc} style={{ background: "none", border: `1px solid #3a1a1a`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "7px 14px", opacity: 0.8 }}>삭제</button>}
+            <Btn onClick={saveDoc} style={{ opacity: knDirty ? 1 : 0.5 }}>저장</Btn>
+          </div>
+        </div>
+
+        <div style={{ ...cardStyle(), padding: 20 }}>
+          <input value={knForm.title} onChange={e => { setKnForm(p => ({ ...p, title: e.target.value })); setKnDirty(true); }}
+            style={{ ...inp, fontSize: 20, fontWeight: 700, marginBottom: 10, background: "transparent", border: "none", borderBottom: `1px solid ${T.border}`, borderRadius: 0, padding: "8px 0" }}
+            placeholder="제목을 입력하세요" />
+          <input value={knForm.category} onChange={e => { setKnForm(p => ({ ...p, category: e.target.value })); setKnDirty(true); }}
+            style={{ ...inp, fontSize: 12, background: "transparent", border: "none", borderRadius: 0, padding: "4px 0", marginBottom: 16, color: T.blue, width: "auto" }}
+            placeholder="카테고리 (선택)" />
+          <textarea value={knForm.content} onChange={e => { setKnForm(p => ({ ...p, content: e.target.value })); setKnDirty(true); }}
+            style={{ ...inp, minHeight: 480, resize: "vertical", lineHeight: 1.9, fontSize: 14, background: "transparent", border: "none", borderRadius: 0, padding: "0", whiteSpace: "pre-wrap" }}
+            placeholder="내용을 자유롭게 작성하세요..." />
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{ padding: 12 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.sub, fontSize: 14, pointerEvents: "none" }}>🔍</span>
+            <input value={knSearch} onChange={e => setKnSearch(e.target.value)}
+              style={{ ...inp, paddingLeft: 36 }} placeholder="제목, 내용 검색..." />
+          </div>
+          <Btn onClick={openNew}>+ 새 문서</Btn>
+        </div>
+        {filtered.length === 0
+          ? <div style={{ textAlign: "center", color: T.sub, padding: "60px 0", fontSize: 13 }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📖</div>
+              {knSearch ? "검색 결과가 없어요." : "아직 작성한 문서가 없어요.\n+ 새 문서를 눌러 시작해보세요!"}
+            </div>
+          : filtered.map(doc => (
+            <div key={doc.id} onClick={() => openDoc(doc.id)} style={{ ...cardStyle({ cursor: "pointer" }), padding: "16px 18px" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{doc.title}</span>
+                {doc.category && <span style={{ fontSize: 11, fontWeight: 600, color: T.blue, background: "#152040", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap", marginLeft: 8 }}>{doc.category}</span>}
+              </div>
+              {doc.content && <div style={{ fontSize: 13, color: T.sub, lineHeight: 1.6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{doc.content}</div>}
+              <div style={{ fontSize: 11, color: T.sub, marginTop: 8 }}>{new Date(doc.updatedAt).toLocaleDateString("ko-KR")}</div>
+            </div>
+          ))
+        }
+      </div>
+    );
+  };
+
   // ──────────── ATTENDANCE ────────────
   const renderAttendance = () => {
     if (!showAttendance) return null;
@@ -1814,7 +1927,8 @@ export default function App() {
         {tab === "대시보드" && renderDashboard()}
         {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
         {tab === "매매분석" && renderAnalysis()}
-        {!["대시보드","매매일지","매매분석"].includes(tab) && (
+        {tab === "지식창고" && renderKnowledge()}
+        {!["대시보드","매매일지","매매분석","지식창고"].includes(tab) && (
           <div style={{ textAlign: "center", color: T.sub, padding: "80px 20px" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>{NAV_TABS.find(t => t.id === tab)?.icon}</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{tab}</div>
