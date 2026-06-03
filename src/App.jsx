@@ -99,6 +99,8 @@ export default function App() {
   const [isDirty, setIsDirty] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingDate, setEditingDate] = useState(false);
+  const [newDateInput, setNewDateInput] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
@@ -265,6 +267,16 @@ export default function App() {
     const newTrash = { ...trash }; delete newTrash[date];
     setTrash(newTrash); setConfirmPermDelete(null);
     try { await save(data, dates, newTrash); } catch { alert("삭제 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
+  };
+
+  const changeDate = async (newDate) => {
+    if (!newDate || newDate === selDate) { setEditingDate(false); return; }
+    if (dates.includes(newDate)) { alert("이미 해당 날짜의 일지가 존재해요."); return; }
+    const journalData = data[selDate];
+    const newDates = [...dates.filter(d => d !== selDate), newDate].sort((a, b) => b.localeCompare(a));
+    const newData = { ...data }; delete newData[selDate]; newData[newDate] = journalData;
+    setDates(newDates); setData(newData); setSelDate(newDate); setEditingDate(false);
+    try { await save(newData, newDates, trash); } catch { alert("저장 중 오류가 발생했어요."); }
   };
 
   const selectCalDate = (y, m, d) => {
@@ -816,7 +828,22 @@ export default function App() {
           <button onClick={goBack} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 13px", fontSize: 13, color: T.sub, cursor: "pointer" }}>← 목록</button>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {isDirty && <span style={{ fontSize: 12, color: T.sub }}>● 저장 안 됨</span>}
-            <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+            {editingDate ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="date" value={newDateInput} onChange={e => setNewDateInput(e.target.value)}
+                  style={{ ...inp, width: "auto", fontSize: 14, padding: "6px 10px" }} autoFocus />
+                <button onClick={() => changeDate(newDateInput)}
+                  style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: T.tabActive, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확인</button>
+                <button onClick={() => setEditingDate(false)}
+                  style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer" }}>취소</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+                <button onClick={() => { setNewDateInput(selDate); setEditingDate(true); }}
+                  style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "4px 8px", color: T.sub, fontSize: 12, cursor: "pointer" }}>✏️ 수정</button>
+              </div>
+            )}
           </div>
         </div>
 
