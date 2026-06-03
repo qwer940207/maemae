@@ -1160,6 +1160,8 @@ export default function App() {
                 {!(j.kakaoImages || []).length && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <div tabIndex={0}
+                      onFocus={() => { focusedImgFieldRef.current = null; }}
+                      onBlur={() => {}}
                       style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "20px 10px", textAlign: "center", background: T.input, outline: "none", cursor: "default" }}>
                       <div style={{ fontSize: 20, marginBottom: 3 }}>🖼️</div>
                       <div style={{ color: T.sub, fontSize: 11 }}>클릭 후 Ctrl+V</div>
