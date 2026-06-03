@@ -24,12 +24,12 @@ const MEDIUM_TAGS = {
   "스윙": [],
 };
 const SMALL_TAGS = {
-  "상따": ["1상승", "2상승", "3상승 이상"],
+  "상따": ["1상승", "2상승", "3상승 이상", "음봉반등"],
   "양봉종배": ["1상승", "2상승", "3상승 이상"],
 };
 const DEFAULT_MEDIUM = MEDIUM_TAGS["종배"][0]; // "상따"
 const DEFAULT_SMALL = SMALL_TAGS[DEFAULT_MEDIUM]?.[0] || "";
-const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주"];
+const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주", "엇박", "상따 수수료"];
 const ATTEND_ITEMS = ["매매일지를 작성했나요", "원칙을 잘 지켰나요", "강의를 복습했나요"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
