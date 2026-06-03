@@ -150,7 +150,7 @@ export default function App() {
   const watchlistRef = useRef(null);
   const [showExpertForm, setShowExpertForm] = useState(false);
   const [expertComment, setExpertComment] = useState("");
-  const [expertImage, setExpertImage] = useState(null);
+  const [expertImages, setExpertImages] = useState([]);
   const [expertOpen, setExpertOpen] = useState(false);
   const focusedImgFieldRef = useRef(null);
   const [knowledgeDocs, setKnowledgeDocs] = useState([]);
@@ -225,7 +225,7 @@ export default function App() {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
           }
         } else if (selDate && showExpertForm) {
-          readImg(file, src => setExpertImage(src));
+          readImg(file, src => setExpertImages(p => [...p, src]));
         }
       }
     };
@@ -1223,10 +1223,18 @@ export default function App() {
               {/* 엔트리 목록 */}
               {(j.expertEntries || []).map((entry, i) => (
                 <div key={entry.id} style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {entry.image && (
-                    <img src={entry.image} alt="" onClick={() => setLightbox(entry.image)}
-                      style={{ width: 120, flexShrink: 0, borderRadius: 8, cursor: "zoom-in", display: "block", objectFit: "cover" }} />
-                  )}
+                  {/* 이미지 목록 (images 배열 우선, 없으면 image 단일) */}
+                  {(() => {
+                    const imgs = entry.images?.length ? entry.images : (entry.image ? [entry.image] : []);
+                    return imgs.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                        {imgs.map((src, ii) => (
+                          <img key={ii} src={src} alt="" onClick={() => setLightbox(src)}
+                            style={{ width: 120, borderRadius: 8, cursor: "zoom-in", display: "block" }} />
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {entry.comment && (
                       <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{entry.comment}</div>
@@ -1243,24 +1251,27 @@ export default function App() {
               {/* 추가 폼 */}
               {showExpertForm && (
                 <div style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {/* 왼쪽: 이미지 */}
-                  <div style={{ width: 130, flexShrink: 0 }}>
-                    {expertImage ? (
-                      <div style={{ position: "relative" }}>
-                        <img src={expertImage} alt="" style={{ width: "100%", borderRadius: 8, display: "block" }} />
-                        <button onClick={() => setExpertImage(null)}
-                          style={{ position: "absolute", top: 4, right: 4, background: T.red, border: "none", borderRadius: "50%", width: 20, height: 20, color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "20px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6 }}>
-                          📋 Ctrl+V
-                        </div>
-                        <button onClick={() => expertRef.current?.click()}
-                          style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "5px", fontSize: 11, color: T.sub, cursor: "pointer" }}>📁 파일 선택</button>
+                  {/* 왼쪽: 이미지 목록 */}
+                  <div style={{ width: 140, flexShrink: 0 }}>
+                    {expertImages.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
+                        {expertImages.map((img, idx) => (
+                          <div key={idx} style={{ position: "relative" }}>
+                            <img src={img} alt="" style={{ width: "100%", borderRadius: 8, display: "block" }} />
+                            <button onClick={() => setExpertImages(p => p.filter((_, k) => k !== idx))}
+                              style={{ position: "absolute", top: 4, right: 4, background: T.red, border: "none", borderRadius: "50%", width: 18, height: 18, color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                          </div>
+                        ))}
                       </div>
                     )}
-                    <input ref={expertRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => setExpertImage(src)); }} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "10px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6 }}>
+                        📋 Ctrl+V로 사진 추가
+                      </div>
+                      <button onClick={() => expertRef.current?.click()}
+                        style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "5px", fontSize: 11, color: T.sub, cursor: "pointer" }}>📁 파일 선택</button>
+                    </div>
+                    <input ref={expertRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => { Array.from(e.target.files).forEach(f => readImg(f, src => setExpertImages(p => [...p, src]))); }} />
                   </div>
                   {/* 오른쪽: 코멘트 + 버튼 */}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1269,12 +1280,12 @@ export default function App() {
                       placeholder="배운 점, 참고할 내용 등을 적어보세요..." />
                     <div style={{ display: "flex", gap: 8 }}>
                       <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
-                        if (!expertImage && !expertComment.trim()) return;
-                        const entry = { id: Date.now(), image: expertImage, comment: expertComment.trim() };
+                        if (!expertImages.length && !expertComment.trim()) return;
+                        const entry = { id: Date.now(), images: expertImages, image: expertImages[0] || null, comment: expertComment.trim() };
                         upd({ expertEntries: [...(j.expertEntries || []), entry] });
-                        setExpertImage(null); setExpertComment(""); setShowExpertForm(false);
+                        setExpertImages([]); setExpertComment(""); setShowExpertForm(false);
                       }}>추가</Btn>
-                      <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setExpertImage(null); setExpertComment(""); setShowExpertForm(false); }}>취소</Btn>
+                      <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setExpertImages([]); setExpertComment(""); setShowExpertForm(false); }}>취소</Btn>
                     </div>
                   </div>
                 </div>
