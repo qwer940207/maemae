@@ -30,12 +30,13 @@ const SMALL_TAGS = {
 const DEFAULT_MEDIUM = MEDIUM_TAGS["종배"][0]; // "상따"
 const DEFAULT_SMALL = SMALL_TAGS[DEFAULT_MEDIUM]?.[0] || "";
 const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주"];
+const ATTEND_ITEMS = ["매매일지를 작성했나요", "원칙을 잘 지켰나요", "강의를 복습했나요"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
   { id: "매매일지", icon: "📋" },
   { id: "매매분석", icon: "📈" },
   { id: "강의록", icon: "📚" },
-  { id: "자산/가계부", icon: "💰" }
+  { id: "지식창고", icon: "📖" }
 ];
 
 const INIT_DATES = ["2026-06-01", "2026-05-31", "2026-05-30"];
@@ -79,7 +80,11 @@ export default function App() {
   const [data, setData] = useState(INIT_DATA);
   const [dates, setDates] = useState(INIT_DATES);
   const [trash, setTrash] = useState({});
-  const [kakaoOpen, setKakaoOpen] = useState(true);
+  const [kakaoOpen, setKakaoOpen] = useState(false);
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const [tradeVolOpen, setTradeVolOpen] = useState(false);
+  const [tradesOpen, setTradesOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
@@ -98,6 +103,8 @@ export default function App() {
   const [isDirty, setIsDirty] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingDate, setEditingDate] = useState(false);
+  const [newDateInput, setNewDateInput] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   const [confirmPermDelete, setConfirmPermDelete] = useState(null);
   const [analysisTab, setAnalysisTab] = useState("시나리오");
@@ -112,6 +119,18 @@ export default function App() {
   const [dashCalMonth, setDashCalMonth] = useState(new Date().getMonth());
   const [editForms, setEditForms] = useState({});
   const [formChartIdx, setFormChartIdx] = useState(0);
+  const [attendance, setAttendance] = useState({});
+  const [knowledge, setKnowledge] = useState([]);
+  const [knView, setKnView] = useState("list");
+  const [selKn, setSelKn] = useState(null);
+  const [knSearch, setKnSearch] = useState("");
+  const [knForm, setKnForm] = useState({ title: "", content: "", category: "" });
+  const [knDirty, setKnDirty] = useState(false);
+  const [focusedKnBlock, setFocusedKnBlock] = useState(null);
+  const [showAttendance, setShowAttendance] = useState(false);
+  const [attendCalYear, setAttendCalYear] = useState(new Date().getFullYear());
+  const [attendCalMonth, setAttendCalMonth] = useState(new Date().getMonth());
+  const [attendDate, setAttendDate] = useState(null);
   const [editChartIdx, setEditChartIdx] = useState({});
   const editChartRef = useRef(null);
   const [lightbox, setLightbox] = useState(null);
@@ -122,6 +141,7 @@ export default function App() {
   const [importPreview, setImportPreview] = useState(null);
   const [importFile, setImportFile] = useState(null);
   const importRef = useRef(null);
+  const knImgRef = useRef(null);
 
   const kakaoRef = useRef(null);
   const chartRef = useRef(null);
@@ -146,6 +166,8 @@ export default function App() {
           if (p.data) setData(p.data);
           if (p.dates) setDates(p.dates);
           if (p.knowledgeDocs) setKnowledgeDocs(p.knowledgeDocs);
+          if (p.attendance) setAttendance(p.attendance);
+          if (p.knowledge) setKnowledge(p.knowledge);
           if (p.trash) {
             const now = Date.now();
             const cleaned = Object.fromEntries(
@@ -188,6 +210,19 @@ export default function App() {
         } else if (selDate && showExpertForm) {
           readImg(file, src => setExpertImage(src));
         }
+      } else if (tab === "지식창고" && knView === "doc") {
+        readImg(file, src => {
+          const imgBlock = { id: Date.now(), type: "image", data: src };
+          const txtBlock = { id: Date.now() + 1, type: "text", data: "" };
+          setKnForm(p => {
+            const blocks = [...(p.blocks || [])];
+            const idx = focusedKnBlock ? blocks.findIndex(b => b.id === focusedKnBlock) : blocks.length - 1;
+            const at = idx >= 0 ? idx + 1 : blocks.length;
+            blocks.splice(at, 0, imgBlock, txtBlock);
+            return { ...p, blocks };
+          });
+          setKnDirty(true);
+        });
       }
     };
     window.addEventListener("paste", onPaste);
@@ -196,8 +231,8 @@ export default function App() {
 
   const j = selDate ? data[selDate] : null;
 
-  const save = async (d, dl, tr) => {
-    await storage.set({ data: d, dates: dl, trash: tr });
+  const save = async (d, dl, tr, att = attendance, kn = knowledge) => {
+    await storage.set({ data: d, dates: dl, trash: tr, attendance: att, knowledge: kn });
   };
 
   const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
@@ -299,6 +334,16 @@ export default function App() {
     const newTrash = { ...trash }; delete newTrash[date];
     setTrash(newTrash); setConfirmPermDelete(null);
     try { await save(data, dates, newTrash); } catch { alert("삭제 저장 중 오류가 발생했어요. 다시 시도해주세요."); }
+  };
+
+  const changeDate = async (newDate) => {
+    if (!newDate || newDate === selDate) { setEditingDate(false); return; }
+    if (dates.includes(newDate)) { alert("이미 해당 날짜의 일지가 존재해요."); return; }
+    const journalData = data[selDate];
+    const newDates = [...dates.filter(d => d !== selDate), newDate].sort((a, b) => b.localeCompare(a));
+    const newData = { ...data }; delete newData[selDate]; newData[newDate] = journalData;
+    setDates(newDates); setData(newData); setSelDate(newDate); setEditingDate(false);
+    try { await save(newData, newDates, trash); } catch { alert("저장 중 오류가 발생했어요."); }
   };
 
   const selectCalDate = (y, m, d) => {
@@ -575,23 +620,6 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "13px 16px", borderBottom: `1px solid ${T.border}` }}><span style={{ fontWeight: 600, fontSize: 14, color: T.sub }}>최근 매매</span></div>
-          {recent.length === 0
-            ? <div style={{ padding: "32px", textAlign: "center", color: T.sub, fontSize: 13 }}>매매 내역이 없습니다.<br /><span style={{ fontSize: 11, marginTop: 4, display: "block" }}>매매일지에서 종목을 추가해보세요.</span></div>
-            : recent.map((t, i) => {
-              const pos = (t.returnRate ?? 0) >= 0;
-              return (
-                <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{truncName(t.name)}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
-                    <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{(t.returnRate ?? 0).toFixed(2)}%</div>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
       </div>
     );
   };
@@ -850,18 +878,36 @@ export default function App() {
           <button onClick={goBack} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 13px", fontSize: 13, color: T.sub, cursor: "pointer" }}>← 목록</button>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {isDirty && <span style={{ fontSize: 12, color: T.sub }}>● 저장 안 됨</span>}
-            <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+            {editingDate ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="date" value={newDateInput} onChange={e => setNewDateInput(e.target.value)}
+                  style={{ ...inp, width: "auto", fontSize: 14, padding: "6px 10px" }} autoFocus />
+                <button onClick={() => changeDate(newDateInput)}
+                  style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: T.tabActive, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확인</button>
+                <button onClick={() => setEditingDate(false)}
+                  style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, cursor: "pointer" }}>취소</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+                <button onClick={() => { setNewDateInput(selDate); setEditingDate(true); }}
+                  style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "4px 8px", color: T.sub, fontSize: 12, cursor: "pointer" }}>✏️ 수정</button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* 시나리오 */}
         <div style={cardStyle()}>
-          <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>🎯</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>시나리오</span>
-            <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
+          <div onClick={() => setScenarioOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!scenarioOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>🎯</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>시나리오</span>
+              <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: scenarioOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
-          <div style={{ padding: 16 }}>
+          {scenarioOpen && <div style={{ padding: 16 }}>
             {/* 시장분석 */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>시장분석</div>
@@ -932,7 +978,7 @@ export default function App() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}>
                           {scName && <div style={{ fontWeight: 700, fontSize: 13, color: T.blue, marginBottom: 4 }}>{scName}</div>}
-                          <span>{scText}</span>
+                          <span style={{ whiteSpace: "pre-wrap" }}>{scText}</span>
                         </div>
                         <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
                           <button onClick={() => { setEditingScIdx(i); setEditingScName(scName); setEditingScContent(scText); setEditingScResultComment(resultComment); }}
@@ -1003,17 +1049,20 @@ export default function App() {
                 + 시나리오 추가
               </button>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* 거래대금 / 관종 */}
         <div style={cardStyle()}>
-          <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>📈</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
-            <span style={{ fontSize: 11, color: T.sub }}>클릭 또는 Ctrl+V로 사진 첨부</span>
+          <div onClick={() => setTradeVolOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!tradeVolOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>📈</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
+              <span style={{ fontSize: 11, color: T.sub }}>전일 거래대금과 관심종목</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: tradeVolOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
-          <div style={{ padding: 16, display: "flex", gap: 12 }}>
+          {tradeVolOpen && <div style={{ padding: 16, display: "flex", gap: 12 }}>
             {[
               { label: "거래대금", field: "tradeVolumeImg", ref: tradeVolumeRef },
               { label: "관종",    field: "watchlistImg",  ref: watchlistRef  },
@@ -1045,7 +1094,7 @@ export default function App() {
                 <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => { upd({ [field]: src }); }); }} />
               </div>
             ))}
-          </div>
+          </div>}
         </div>
 
         {/* 카톡 캡처 / 선생님 코멘트 */}
@@ -1213,11 +1262,15 @@ export default function App() {
 
         {/* 매매내역 */}
         <div style={cardStyle({ marginBottom: 0 })}>
-          <div style={hdStyle({ justifyContent: "space-between" })}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 17 }}>📊</span><span style={{ fontWeight: 700, fontSize: 15 }}>매매내역</span></div>
-            <Btn style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setShowForm(true)}>+ 새 종목</Btn>
+          <div style={{ ...hdStyle({ justifyContent: "space-between", ...(!tradesOpen && { borderBottom: "none" }) }) }}>
+            <div onClick={() => setTradesOpen(p => !p)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}>
+              <span style={{ fontSize: 17 }}>📊</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>매매내역</span>
+              <span style={{ color: T.sub, display: "inline-block", transform: tradesOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s", marginLeft: 4 }}>▲</span>
+            </div>
+            {tradesOpen && <Btn style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setShowForm(true)}>+ 새 종목</Btn>}
           </div>
-          {showForm && (
+          {tradesOpen && showForm && (
             <div style={{ padding: 16, borderBottom: `1px solid ${T.border}` }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#dce5ff" }}>새 종목</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 12 }}>
@@ -1312,7 +1365,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 8 }}><Btn onClick={saveTrade}>추가</Btn><Btn variant="ghost" onClick={() => setShowForm(false)}>취소</Btn></div>
             </div>
           )}
-          <div style={{ padding: "8px 10px 10px" }}>
+          {tradesOpen && <div style={{ padding: "8px 10px 10px" }}>
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
@@ -1443,21 +1496,24 @@ export default function App() {
               );
             })}
             {!trades.length && !showForm && <div style={{ textAlign: "center", color: T.sub, padding: "24px 0", fontSize: 13 }}>아직 매매 내역이 없습니다.</div>}
-          </div>
+          </div>}
         </div>
 
         {/* 오늘의 정리 */}
         <div style={cardStyle()}>
-          <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>📝</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
-            <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+          <div onClick={() => setSummaryOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!summaryOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>📝</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
+              <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: summaryOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
-          <div style={{ padding: 16 }}>
+          {summaryOpen && <div style={{ padding: 16 }}>
             <textarea value={j.todaySummary || ""} onChange={e => upd({ todaySummary: e.target.value })}
               style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 13 }}
               placeholder="오늘의 시장 흐름, 내 심리 상태, 잘한 점, 아쉬운 점 등을 자유롭게 적어보세요..." />
-          </div>
+          </div>}
         </div>
 
         {/* 저장 / 일지 삭제 */}
@@ -1824,11 +1880,123 @@ export default function App() {
     );
   };
 
+
+  // ──────────── ATTENDANCE ────────────
+  const renderAttendance = () => {
+    if (!showAttendance) return null;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const DAYS = ["일","월","화","수","목","금","토"];
+    const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+    const firstDow = new Date(attendCalYear, attendCalMonth, 1).getDay();
+    const daysInMonth = new Date(attendCalYear, attendCalMonth + 1, 0).getDate();
+    const prevDays = new Date(attendCalYear, attendCalMonth, 0).getDate();
+    const cells = [];
+    for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, type: "prev" });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: "cur" });
+    const rem = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
+    for (let d = 1; d <= rem; d++) cells.push({ day: d, type: "next" });
+    const prevMonth = () => attendCalMonth === 0 ? (setAttendCalYear(y => y-1), setAttendCalMonth(11)) : setAttendCalMonth(m => m-1);
+    const nextMonth = () => attendCalMonth === 11 ? (setAttendCalYear(y => y+1), setAttendCalMonth(0)) : setAttendCalMonth(m => m+1);
+
+    let streak = 0;
+    for (let i = 0; i <= 365; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      if ((attendance[ds] || []).some(Boolean)) streak++;
+      else break;
+    }
+
+    const getMark = (ds) => {
+      const count = (attendance[ds] || []).filter(Boolean).length;
+      if (count === 0) return null;
+      if (count === 1) return { char: "▲", color: "#b0903a" };
+      if (count === 2) return { char: "▲", color: T.blue };
+      return { char: "●", color: T.profit };
+    };
+
+    const toggleCheck = (ds, idx) => {
+      const cur = attendance[ds] || [false, false, false];
+      const next = [...cur]; next[idx] = !next[idx];
+      const newAtt = { ...attendance, [ds]: next };
+      setAttendance(newAtt);
+      storage.set({ data, dates, trash, attendance: newAtt }).catch(() => {});
+    };
+
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        onClick={() => { setShowAttendance(false); setAttendDate(null); }}>
+        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 360, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>📅</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>출석 체크</span>
+            </div>
+            <button onClick={() => { setShowAttendance(false); setAttendDate(null); }}
+              style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ background: T.card2, borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: T.sub }}>연속 출석</span>
+            <span style={{ fontWeight: 800, fontSize: 18, color: T.profit }}>{streak}일 🔥</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button onClick={prevMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px" }}>‹</button>
+            <span style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{attendCalYear}년 {MONTHS[attendCalMonth]}</span>
+            <button onClick={nextMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px" }}>›</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 4 }}>
+            {DAYS.map((d, i) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, padding: "3px 0", color: i===0 ? T.red : i===6 ? T.blue : T.sub }}>{d}</div>)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "2px", marginBottom: 14 }}>
+            {cells.map((cell, i) => {
+              if (cell.type !== "cur") return <div key={i} style={{ padding: "8px 0" }} />;
+              const ds = `${attendCalYear}-${String(attendCalMonth+1).padStart(2,"0")}-${String(cell.day).padStart(2,"0")}`;
+              const isFuture = ds > todayStr;
+              const isToday = ds === todayStr;
+              const isSelected = ds === attendDate;
+              const mark = getMark(ds);
+              const dow = (firstDow + cell.day - 1) % 7;
+              return (
+                <div key={i} onClick={() => !isFuture && setAttendDate(isSelected ? null : ds)}
+                  style={{ textAlign: "center", padding: "5px 0", cursor: isFuture ? "default" : "pointer", borderRadius: 8,
+                    background: isSelected ? T.tabActive : isToday ? "#1c2840" : "transparent", opacity: isFuture ? 0.25 : 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: isToday ? 700 : 400, color: isSelected ? "#fff" : dow===0 ? T.red : dow===6 ? T.blue : T.text }}>{cell.day}</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.2, minHeight: 13, color: mark?.color }}>{mark?.char || ""}</div>
+                </div>
+              );
+            })}
+          </div>
+          {attendDate && (
+            <div style={{ background: T.card2, borderRadius: 12, border: `1px solid ${T.border}`, padding: "14px 16px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 12 }}>{fmtDate(attendDate)}</div>
+              {ATTEND_ITEMS.map((item, idx) => {
+                const checked = (attendance[attendDate] || [])[idx] || false;
+                return (
+                  <label key={idx} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: idx < 2 ? 10 : 0 }}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleCheck(attendDate, idx)}
+                      style={{ accentColor: T.tabActive, width: 16, height: 16 }} />
+                    <span style={{ fontSize: 13, color: checked ? T.text : T.sub, fontWeight: checked ? 600 : 400 }}>{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 11, color: T.sub, justifyContent: "center" }}>
+            <span><span style={{ color: "#b0903a" }}>▲</span> 1개</span>
+            <span><span style={{ color: T.blue }}>▲</span> 2개</span>
+            <span><span style={{ color: T.profit }}>●</span> 3개 완료</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ──────────── MAIN ────────────
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
       {renderCalendar()}
       {renderDashCalendar()}
+      {renderAttendance()}
       {renderTrash()}
       {renderImportModal()}
       {lightbox && (
@@ -1838,9 +2006,15 @@ export default function App() {
       )}
       <div style={{ borderBottom: `1px solid ${T.border}` }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", padding: "14px 16px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
-            <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
-            <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
+              <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
+            </div>
+            <button onClick={() => setShowAttendance(true)}
+              style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+              📅 출석 체크
+            </button>
           </div>
           <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
             {NAV_TABS.map(t => (
