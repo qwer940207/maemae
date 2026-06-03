@@ -151,6 +151,9 @@ export default function App() {
   const [showExpertForm, setShowExpertForm] = useState(false);
   const [expertComment, setExpertComment] = useState("");
   const [expertImages, setExpertImages] = useState([]);
+  const [editingExpertIdx, setEditingExpertIdx] = useState(null);
+  const [editingExpertImages, setEditingExpertImages] = useState([]);
+  const [editingExpertComment, setEditingExpertComment] = useState("");
   const [expertOpen, setExpertOpen] = useState(false);
   const focusedImgFieldRef = useRef(null);
   const [knowledgeDocs, setKnowledgeDocs] = useState([]);
@@ -226,12 +229,14 @@ export default function App() {
           }
         } else if (selDate && showExpertForm) {
           readImg(file, src => setExpertImages(p => [...p, src]));
+        } else if (selDate && editingExpertIdx !== null) {
+          readImg(file, src => setEditingExpertImages(p => [...p, src]));
         }
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, tab, showForm, selDate, parsing, expandedId, showExpertForm]);
+  }, [view, tab, showForm, selDate, parsing, expandedId, showExpertForm, editingExpertIdx]);
 
   const j = selDate ? data[selDate] : null;
 
@@ -1221,29 +1226,71 @@ export default function App() {
           {expertOpen && (
             <div style={{ padding: 16 }}>
               {/* 엔트리 목록 */}
-              {(j.expertEntries || []).map((entry, i) => (
-                <div key={entry.id} style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  {/* 이미지 목록 (images 배열 우선, 없으면 image 단일) */}
-                  {(() => {
-                    const imgs = entry.images?.length ? entry.images : (entry.image ? [entry.image] : []);
-                    return imgs.length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                        {imgs.map((src, ii) => (
-                          <img key={ii} src={src} alt="" onClick={() => setLightbox(src)}
-                            style={{ width: 120, borderRadius: 8, cursor: "zoom-in", display: "block" }} />
-                        ))}
+              {(j.expertEntries || []).map((entry, i) => {
+                const imgs = entry.images?.length ? entry.images : (entry.image ? [entry.image] : []);
+                const isEditing = editingExpertIdx === i;
+                return (
+                  <div key={entry.id} style={{ background: T.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                    {isEditing ? (
+                      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        {/* 편집: 이미지 */}
+                        <div style={{ width: 140, flexShrink: 0 }}>
+                          {editingExpertImages.length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
+                              {editingExpertImages.map((src, ii) => (
+                                <div key={ii} style={{ position: "relative" }}>
+                                  <img src={src} alt="" style={{ width: "100%", borderRadius: 8, display: "block" }} />
+                                  <button onClick={() => setEditingExpertImages(p => p.filter((_, k) => k !== ii))}
+                                    style={{ position: "absolute", top: 4, right: 4, background: T.red, border: "none", borderRadius: "50%", width: 18, height: 18, color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub }}>
+                            📋 Ctrl+V로 사진 추가
+                          </div>
+                        </div>
+                        {/* 편집: 코멘트 + 버튼 */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <textarea value={editingExpertComment} onChange={e => setEditingExpertComment(e.target.value)}
+                            style={{ ...inp, minHeight: 110, resize: "vertical", lineHeight: 1.7, marginBottom: 8 }}
+                            placeholder="배운 점, 참고할 내용 등을 적어보세요..." />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <Btn style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                              const updated = { ...entry, images: editingExpertImages, image: editingExpertImages[0] || null, comment: editingExpertComment.trim() };
+                              upd({ expertEntries: (j.expertEntries || []).map((e, k) => k === i ? updated : e) });
+                              setEditingExpertIdx(null);
+                            }}>저장</Btn>
+                            <Btn variant="ghost" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => setEditingExpertIdx(null)}>취소</Btn>
+                          </div>
+                        </div>
                       </div>
-                    );
-                  })()}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {entry.comment && (
-                      <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{entry.comment}</div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        {imgs.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                            {imgs.map((src, ii) => (
+                              <img key={ii} src={src} alt="" onClick={() => setLightbox(src)}
+                                style={{ width: 120, borderRadius: 8, cursor: "zoom-in", display: "block" }} />
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {entry.comment && (
+                            <div style={{ fontSize: 13, color: T.text, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{entry.comment}</div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                          <button onClick={() => { setEditingExpertIdx(i); setEditingExpertImages([...imgs]); setEditingExpertComment(entry.comment || ""); }}
+                            style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 13, padding: "0 3px" }}>✏️</button>
+                          <button onClick={() => { if (!window.confirm("이 항목을 삭제하시겠어요?")) return; upd({ expertEntries: (j.expertEntries || []).filter((_, k) => k !== i) }); }}
+                            style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 3px" }}>×</button>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <button onClick={() => { if (!window.confirm("이 항목을 삭제하시겠어요?")) return; upd({ expertEntries: (j.expertEntries || []).filter((_, k) => k !== i) }); }}
-                    style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}>×</button>
-                </div>
-              ))}
+                );
+              })}
               {!(j.expertEntries || []).length && !showExpertForm && (
                 <p style={{ color: T.sub, fontSize: 13, marginBottom: 12 }}>아직 추가된 항목이 없습니다.</p>
               )}
