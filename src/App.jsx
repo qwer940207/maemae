@@ -30,6 +30,7 @@ const SMALL_TAGS = {
 const DEFAULT_MEDIUM = MEDIUM_TAGS["종배"][0]; // "상따"
 const DEFAULT_SMALL = SMALL_TAGS[DEFAULT_MEDIUM]?.[0] || "";
 const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주"];
+const ATTEND_ITEMS = ["매매일지를 작성했나요", "원칙을 잘 지켰나요", "강의를 복습했나요"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
   { id: "매매일지", icon: "📋" },
@@ -112,6 +113,11 @@ export default function App() {
   const [dashCalMonth, setDashCalMonth] = useState(new Date().getMonth());
   const [editForms, setEditForms] = useState({});
   const [formChartIdx, setFormChartIdx] = useState(0);
+  const [attendance, setAttendance] = useState({});
+  const [showAttendance, setShowAttendance] = useState(false);
+  const [attendCalYear, setAttendCalYear] = useState(new Date().getFullYear());
+  const [attendCalMonth, setAttendCalMonth] = useState(new Date().getMonth());
+  const [attendDate, setAttendDate] = useState(null);
   const [editChartIdx, setEditChartIdx] = useState({});
   const editChartRef = useRef(null);
   const [lightbox, setLightbox] = useState(null);
@@ -142,6 +148,7 @@ export default function App() {
         if (p) {
           if (p.data) setData(p.data);
           if (p.dates) setDates(p.dates);
+          if (p.attendance) setAttendance(p.attendance);
           if (p.trash) {
             const now = Date.now();
             const cleaned = Object.fromEntries(
@@ -192,8 +199,8 @@ export default function App() {
 
   const j = selDate ? data[selDate] : null;
 
-  const save = async (d, dl, tr) => {
-    await storage.set({ data: d, dates: dl, trash: tr });
+  const save = async (d, dl, tr, att = attendance) => {
+    await storage.set({ data: d, dates: dl, trash: tr, attendance: att });
   };
 
   const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
@@ -1632,11 +1639,122 @@ export default function App() {
     );
   };
 
+  // ──────────── ATTENDANCE ────────────
+  const renderAttendance = () => {
+    if (!showAttendance) return null;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const DAYS = ["일","월","화","수","목","금","토"];
+    const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+    const firstDow = new Date(attendCalYear, attendCalMonth, 1).getDay();
+    const daysInMonth = new Date(attendCalYear, attendCalMonth + 1, 0).getDate();
+    const prevDays = new Date(attendCalYear, attendCalMonth, 0).getDate();
+    const cells = [];
+    for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, type: "prev" });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, type: "cur" });
+    const rem = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
+    for (let d = 1; d <= rem; d++) cells.push({ day: d, type: "next" });
+    const prevMonth = () => attendCalMonth === 0 ? (setAttendCalYear(y => y-1), setAttendCalMonth(11)) : setAttendCalMonth(m => m-1);
+    const nextMonth = () => attendCalMonth === 11 ? (setAttendCalYear(y => y+1), setAttendCalMonth(0)) : setAttendCalMonth(m => m+1);
+
+    let streak = 0;
+    for (let i = 0; i <= 365; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      if ((attendance[ds] || []).some(Boolean)) streak++;
+      else break;
+    }
+
+    const getMark = (ds) => {
+      const count = (attendance[ds] || []).filter(Boolean).length;
+      if (count === 0) return null;
+      if (count === 1) return { char: "△", color: "#b0903a" };
+      if (count === 2) return { char: "△", color: T.blue };
+      return { char: "●", color: T.profit };
+    };
+
+    const toggleCheck = (ds, idx) => {
+      const cur = attendance[ds] || [false, false, false];
+      const next = [...cur]; next[idx] = !next[idx];
+      const newAtt = { ...attendance, [ds]: next };
+      setAttendance(newAtt);
+      storage.set({ data, dates, trash, attendance: newAtt }).catch(() => {});
+    };
+
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        onClick={() => { setShowAttendance(false); setAttendDate(null); }}>
+        <div style={{ background: "#1a1f30", borderRadius: 16, border: `1px solid ${T.border}`, padding: "20px", width: 360, maxWidth: "95vw", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>📅</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>출석 체크</span>
+            </div>
+            <button onClick={() => { setShowAttendance(false); setAttendDate(null); }}
+              style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 22, lineHeight: 1 }}>×</button>
+          </div>
+          <div style={{ background: T.card2, borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: T.sub }}>연속 출석</span>
+            <span style={{ fontWeight: 800, fontSize: 18, color: T.profit }}>{streak}일 🔥</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button onClick={prevMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px" }}>‹</button>
+            <span style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{attendCalYear}년 {MONTHS[attendCalMonth]}</span>
+            <button onClick={nextMonth} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 20, padding: "2px 8px" }}>›</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 4 }}>
+            {DAYS.map((d, i) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, padding: "3px 0", color: i===0 ? T.red : i===6 ? T.blue : T.sub }}>{d}</div>)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "2px", marginBottom: 14 }}>
+            {cells.map((cell, i) => {
+              if (cell.type !== "cur") return <div key={i} style={{ padding: "8px 0" }} />;
+              const ds = `${attendCalYear}-${String(attendCalMonth+1).padStart(2,"0")}-${String(cell.day).padStart(2,"0")}`;
+              const isFuture = ds > todayStr;
+              const isToday = ds === todayStr;
+              const isSelected = ds === attendDate;
+              const mark = getMark(ds);
+              const dow = (firstDow + cell.day - 1) % 7;
+              return (
+                <div key={i} onClick={() => !isFuture && setAttendDate(isSelected ? null : ds)}
+                  style={{ textAlign: "center", padding: "5px 0", cursor: isFuture ? "default" : "pointer", borderRadius: 8,
+                    background: isSelected ? T.tabActive : isToday ? "#1c2840" : "transparent", opacity: isFuture ? 0.25 : 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: isToday ? 700 : 400, color: isSelected ? "#fff" : dow===0 ? T.red : dow===6 ? T.blue : T.text }}>{cell.day}</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.2, minHeight: 13, color: mark?.color }}>{mark?.char || ""}</div>
+                </div>
+              );
+            })}
+          </div>
+          {attendDate && (
+            <div style={{ background: T.card2, borderRadius: 12, border: `1px solid ${T.border}`, padding: "14px 16px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 12 }}>{fmtDate(attendDate)}</div>
+              {ATTEND_ITEMS.map((item, idx) => {
+                const checked = (attendance[attendDate] || [])[idx] || false;
+                return (
+                  <label key={idx} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: idx < 2 ? 10 : 0 }}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleCheck(attendDate, idx)}
+                      style={{ accentColor: T.tabActive, width: 16, height: 16 }} />
+                    <span style={{ fontSize: 13, color: checked ? T.text : T.sub, fontWeight: checked ? 600 : 400 }}>{item}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 11, color: T.sub, justifyContent: "center" }}>
+            <span><span style={{ color: "#b0903a" }}>△</span> 1개</span>
+            <span><span style={{ color: T.blue }}>△</span> 2개</span>
+            <span><span style={{ color: T.profit }}>●</span> 3개 완료</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ──────────── MAIN ────────────
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
       {renderCalendar()}
       {renderDashCalendar()}
+      {renderAttendance()}
       {renderTrash()}
       {renderImportModal()}
       {lightbox && (
@@ -1646,9 +1764,15 @@ export default function App() {
       )}
       <div style={{ borderBottom: `1px solid ${T.border}` }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", padding: "14px 16px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 12 }}>
-            <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
-            <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 28, height: 28, background: T.tabActive, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>📋</div>
+              <span style={{ fontWeight: 800, fontSize: 18, color: "#dce5ff" }}>주식 매매일지</span>
+            </div>
+            <button onClick={() => setShowAttendance(true)}
+              style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+              📅 출석 체크
+            </button>
           </div>
           <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
             {NAV_TABS.map(t => (
