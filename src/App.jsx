@@ -133,6 +133,9 @@ export default function App() {
   const [expertImage, setExpertImage] = useState(null);
   const [expertOpen, setExpertOpen] = useState(true);
   const focusedImgFieldRef = useRef(null);
+  const [knowledgeDocs, setKnowledgeDocs] = useState([]);
+  const [activeKDocId, setActiveKDocId] = useState(null);
+  const [kDirty, setKDirty] = useState(false);
 
   // 불러오기 + 3일 지난 항목 자동 정리
   useEffect(() => {
@@ -142,6 +145,7 @@ export default function App() {
         if (p) {
           if (p.data) setData(p.data);
           if (p.dates) setDates(p.dates);
+          if (p.knowledgeDocs) setKnowledgeDocs(p.knowledgeDocs);
           if (p.trash) {
             const now = Date.now();
             const cleaned = Object.fromEntries(
@@ -165,7 +169,7 @@ export default function App() {
       const file = item.getAsFile();
       if (view === "list") {
         handleImportImage(file);
-      } else if (view === "journal") {
+      } else if (view === "journal" && tab === "매매일지") {
         if (showForm) {
           readImg(file, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] })));
         } else if (expandedId !== null) {
@@ -188,7 +192,7 @@ export default function App() {
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing, expandedId, showExpertForm]);
+  }, [view, tab, showForm, selDate, parsing, expandedId, showExpertForm]);
 
   const j = selDate ? data[selDate] : null;
 
@@ -217,6 +221,43 @@ export default function App() {
     } catch { setSaveMsg("저장 실패 ✕"); }
     setTimeout(() => setSaveMsg(""), 2500);
   };
+
+  // 지식창고 헬퍼
+  const kNewBlock = (type = "paragraph", content = "") => ({ id: `kb${Date.now()}${Math.random().toString(36).slice(2)}`, type, content });
+  const kUpdDoc = patch => { setKnowledgeDocs(p => p.map(d => d.id !== activeKDocId ? d : { ...d, ...patch })); setKDirty(true); };
+  const kUpdBlock = (bid, patch) => { setKnowledgeDocs(p => p.map(d => d.id !== activeKDocId ? d : { ...d, blocks: d.blocks.map(b => b.id !== bid ? b : { ...b, ...patch }) })); setKDirty(true); };
+  const kAddBlockAfter = (afterId, type = "paragraph", content = "") => {
+    const nb = kNewBlock(type, content);
+    setKnowledgeDocs(p => p.map(d => {
+      if (d.id !== activeKDocId) return d;
+      const idx = d.blocks.findIndex(b => b.id === afterId);
+      const bs = [...d.blocks];
+      if (idx === -1) bs.push(nb); else bs.splice(idx + 1, 0, nb);
+      return { ...d, blocks: bs };
+    }));
+    setKDirty(true);
+    return nb.id;
+  };
+  const kDelBlock = (bid, blocks) => { if (blocks.length <= 1) return; setKnowledgeDocs(p => p.map(d => d.id !== activeKDocId ? d : { ...d, blocks: d.blocks.filter(b => b.id !== bid) })); setKDirty(true); };
+  const kAddDoc = () => { const d = { id: `kd${Date.now()}`, title: "", createdAt: Date.now(), blocks: [kNewBlock("h1")] }; setKnowledgeDocs(p => [...p, d]); setActiveKDocId(d.id); setKDirty(true); };
+  const kDelDoc = did => { setKnowledgeDocs(p => p.filter(d => d.id !== did)); if (activeKDocId === did) setActiveKDocId(null); setKDirty(true); };
+
+  // 지식창고 자동 저장
+  useEffect(() => {
+    if (!kDirty) return;
+    const t = setTimeout(async () => {
+      try { await storage.set({ data, dates, trash, knowledgeDocs }); setKDirty(false); } catch {}
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [kDirty, knowledgeDocs, data, dates, trash]);
+
+  // 블록 높이 자동 조정 (문서 전환 시)
+  useEffect(() => {
+    if (!activeKDocId) return;
+    setTimeout(() => {
+      document.querySelectorAll("[data-kblock]").forEach(el => { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; });
+    }, 50);
+  }, [activeKDocId]);
 
   // 자동 저장: 변경 후 2초 뒤 자동 저장
   useEffect(() => {
@@ -1447,6 +1488,157 @@ export default function App() {
     );
   };
 
+  // ──────────── KNOWLEDGE ────────────
+  const renderKnowledge = () => {
+    const activeDoc = knowledgeDocs.find(d => d.id === activeKDocId) || null;
+    const BLOCK_BTNS = [
+      { type: "paragraph", label: "📝 텍스트" },
+      { type: "h1", label: "H1 제목" },
+      { type: "h2", label: "H2 제목" },
+      { type: "h3", label: "H3 제목" },
+      { type: "bullet", label: "• 목록" },
+      { type: "image", label: "🖼️ 이미지" },
+      { type: "divider", label: "— 구분선" },
+    ];
+    const addBlockAtEnd = (type) => {
+      const doc = knowledgeDocs.find(d => d.id === activeKDocId);
+      if (!doc) return;
+      const lastId = doc.blocks[doc.blocks.length - 1]?.id;
+      const newId = kAddBlockAfter(lastId || "", type);
+      if (type !== "image" && type !== "divider") setTimeout(() => document.getElementById(`kblock-${newId}`)?.focus(), 40);
+    };
+    const textStyle = (type) => ({
+      h1: { fontSize: 30, fontWeight: 700, lineHeight: "1.4" },
+      h2: { fontSize: 22, fontWeight: 700, lineHeight: "1.5" },
+      h3: { fontSize: 17, fontWeight: 600, lineHeight: "1.6" },
+      paragraph: { fontSize: 15, lineHeight: "1.85" },
+      bullet: { fontSize: 15, lineHeight: "1.85" },
+    }[type] || { fontSize: 15, lineHeight: "1.85" });
+    const placeholder = (type) => ({ h1: "제목 1", h2: "제목 2", h3: "제목 3", paragraph: "내용을 입력하세요...", bullet: "목록 항목" }[type] || "");
+
+    return (
+      <div style={{ display: "flex", height: "calc(100vh - 60px)", background: T.bg, overflow: "hidden" }}>
+        {/* 사이드바 */}
+        <div style={{ width: 220, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: T.card }}>
+          <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>📚 강의록</span>
+            <button onClick={kAddDoc} style={{ background: T.blue, border: "none", borderRadius: 6, color: "#fff", fontSize: 18, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
+            {knowledgeDocs.length === 0 && <div style={{ padding: "24px 16px", textAlign: "center", color: T.sub, fontSize: 12 }}>+ 버튼으로<br/>새 문서를 만드세요</div>}
+            {knowledgeDocs.map(doc => (
+              <div key={doc.id} style={{ display: "flex", alignItems: "center", padding: "7px 12px", cursor: "pointer", background: doc.id === activeKDocId ? "rgba(59,130,246,0.12)" : "transparent", borderLeft: `3px solid ${doc.id === activeKDocId ? T.blue : "transparent"}` }}
+                onClick={() => setActiveKDocId(doc.id)}>
+                <span style={{ flex: 1, fontSize: 13, color: doc.id === activeKDocId ? T.blue : T.text, fontWeight: doc.id === activeKDocId ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  📄 {doc.title || "제목 없음"}
+                </span>
+                <button onClick={e => { e.stopPropagation(); if (window.confirm("이 문서를 삭제하시겠어요?")) kDelDoc(doc.id); }}
+                  style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 14, flexShrink: 0, opacity: 0.6 }}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 에디터 영역 */}
+        {!activeDoc ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, color: T.sub }}>
+            <div style={{ fontSize: 52 }}>📄</div>
+            <div style={{ fontSize: 15 }}>문서를 선택하거나 새로 만드세요</div>
+            <button onClick={kAddDoc} style={{ padding: "10px 28px", borderRadius: 10, background: T.blue, color: "#fff", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>+ 새 문서</button>
+          </div>
+        ) : (
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <div style={{ maxWidth: 820, margin: "0 auto", padding: "56px 64px 120px" }}>
+              {/* 문서 제목 */}
+              <textarea data-kblock
+                value={activeDoc.title}
+                onChange={e => kUpdDoc({ title: e.target.value })}
+                placeholder="제목 없음"
+                rows={1}
+                onInput={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+                style={{ width: "100%", fontSize: 38, fontWeight: 700, border: "none", background: "transparent", color: T.text, outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.3, marginBottom: 8, overflow: "hidden", padding: 0, display: "block" }} />
+              <div style={{ height: 1, background: T.border, marginBottom: 32 }} />
+
+              {/* 블록 목록 */}
+              {activeDoc.blocks.map((block, idx) => {
+                if (block.type === "divider") {
+                  return (
+                    <div key={block.id} style={{ position: "relative", margin: "12px 0", display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 2, background: T.border, borderRadius: 1 }} />
+                      <button onClick={() => kDelBlock(block.id, activeDoc.blocks)} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 4, color: T.sub, fontSize: 11, cursor: "pointer", padding: "1px 6px", flexShrink: 0 }}>삭제</button>
+                    </div>
+                  );
+                }
+                if (block.type === "image") {
+                  return (
+                    <div key={block.id} style={{ margin: "8px 0", position: "relative" }}>
+                      {block.content ? (
+                        <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+                          <img src={block.content} alt="" onClick={() => setLightbox(block.content)} style={{ maxWidth: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
+                          <button onClick={() => { if (window.confirm("이 이미지를 삭제하시겠어요?")) kUpdBlock(block.id, { content: "" }); }}
+                            style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%", width: 24, height: 24, color: "#fff", fontSize: 13, cursor: "pointer" }}>×</button>
+                        </div>
+                      ) : (
+                        <div tabIndex={0}
+                          onPaste={e => { const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/")); if (item) { e.preventDefault(); readImg(item.getAsFile(), src => kUpdBlock(block.id, { content: src })); } }}
+                          style={{ border: `2px dashed ${T.inputBd}`, borderRadius: 10, padding: "36px 20px", textAlign: "center", cursor: "default", color: T.sub, fontSize: 13, outline: "none" }}>
+                          🖼️ 이 영역을 클릭 후 <strong>Ctrl+V</strong>로 이미지 붙여넣기
+                          <div style={{ marginTop: 8 }}>
+                            <button onClick={() => kDelBlock(block.id, activeDoc.blocks)} style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "3px 10px", color: T.sub, fontSize: 12, cursor: "pointer" }}>블록 삭제</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={block.id} style={{ display: "flex", alignItems: "flex-start", gap: 6, margin: "1px 0" }}>
+                    {block.type === "bullet" && <span style={{ fontSize: 16, marginTop: 4, color: T.text, flexShrink: 0, userSelect: "none" }}>•</span>}
+                    <textarea id={`kblock-${block.id}`} data-kblock
+                      value={block.content}
+                      placeholder={placeholder(block.type)}
+                      rows={1}
+                      onChange={e => kUpdBlock(block.id, { content: e.target.value })}
+                      onInput={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          const newId = kAddBlockAfter(block.id);
+                          setTimeout(() => document.getElementById(`kblock-${newId}`)?.focus(), 40);
+                        }
+                        if (e.key === "Backspace" && !block.content) {
+                          e.preventDefault();
+                          kDelBlock(block.id, activeDoc.blocks);
+                          const prev = activeDoc.blocks[idx - 1];
+                          if (prev) setTimeout(() => document.getElementById(`kblock-${prev.id}`)?.focus(), 40);
+                        }
+                      }}
+                      onPaste={e => {
+                        const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith("image/"));
+                        if (item) { e.preventDefault(); readImg(item.getAsFile(), src => kAddBlockAfter(block.id, "image", src)); }
+                      }}
+                      style={{ ...textStyle(block.type), flex: 1, border: "none", background: "transparent", color: T.text, outline: "none", resize: "none", fontFamily: "inherit", padding: 0, overflow: "hidden", width: "100%" }}
+                    />
+                  </div>
+                );
+              })}
+
+              {/* 블록 추가 바 */}
+              <div style={{ marginTop: 28, paddingTop: 16, borderTop: `1px solid ${T.border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {BLOCK_BTNS.map(({ type, label }) => (
+                  <button key={type} onClick={() => addBlockAtEnd(type)}
+                    style={{ background: "transparent", border: `1px solid ${T.inputBd}`, borderRadius: 7, padding: "5px 12px", color: T.sub, fontSize: 12, cursor: "pointer", transition: "all 0.15s" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ──────────── ANALYSIS ────────────
   const renderAnalysis = () => {
     // 모든 시나리오 수집
@@ -1660,18 +1852,20 @@ export default function App() {
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-        {tab === "대시보드" && renderDashboard()}
-        {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
-        {tab === "매매분석" && renderAnalysis()}
-        {!["대시보드","매매일지","매매분석"].includes(tab) && (
-          <div style={{ textAlign: "center", color: T.sub, padding: "80px 20px" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>{NAV_TABS.find(t => t.id === tab)?.icon}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{tab}</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>준비 중입니다.</div>
-          </div>
-        )}
-      </div>
+      {tab === "강의록" ? renderKnowledge() : (
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          {tab === "대시보드" && renderDashboard()}
+          {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
+          {tab === "매매분석" && renderAnalysis()}
+          {!["대시보드","매매일지","매매분석","강의록"].includes(tab) && (
+            <div style={{ textAlign: "center", color: T.sub, padding: "80px 20px" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>{NAV_TABS.find(t => t.id === tab)?.icon}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{tab}</div>
+              <div style={{ fontSize: 13, marginTop: 6 }}>준비 중입니다.</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
