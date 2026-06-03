@@ -97,10 +97,20 @@ const fmtW = d => ["일","월","화","수","목","금","토"][new Date(d).getDay
 const fmtMoney = n => `₩${Math.abs(n).toLocaleString()}`;
 const readImg = (file, cb) => {
   if (!file?.type.startsWith("image/")) return;
-  const r = new FileReader();
-  r.onload = e => cb(e.target.result);
-  r.onerror = () => console.error("이미지를 읽는 중 오류가 발생했습니다.");
-  r.readAsDataURL(file);
+  const ext = file.type.split("/")[1] || "png";
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  supabase.storage.from("maemae").upload(path, file, { upsert: true })
+    .then(({ error }) => {
+      if (error) {
+        // 업로드 실패 시 base64 fallback
+        const r = new FileReader();
+        r.onload = e => cb(e.target.result);
+        r.readAsDataURL(file);
+        return;
+      }
+      const { data } = supabase.storage.from("maemae").getPublicUrl(path);
+      cb(data.publicUrl);
+    });
 };
 
 const T = {
