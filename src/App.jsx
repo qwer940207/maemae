@@ -220,7 +220,7 @@ export default function App() {
             ...p,
             [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
           })));
-        } else if (selDate && !showExpertForm) {
+        } else if (selDate && !showExpertForm && editingExpertIdx === null) {
           if (focusedImgFieldRef.current === "tradeVolume") {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], tradeVolumeImg: src } })); setIsDirty(true); });
           } else if (focusedImgFieldRef.current === "watchlist") {
