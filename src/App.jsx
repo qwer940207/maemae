@@ -151,7 +151,7 @@ export default function App() {
   const [showExpertForm, setShowExpertForm] = useState(false);
   const [expertComment, setExpertComment] = useState("");
   const [expertImage, setExpertImage] = useState(null);
-  const [expertOpen, setExpertOpen] = useState(true);
+  const [expertOpen, setExpertOpen] = useState(false);
   const focusedImgFieldRef = useRef(null);
   const [knowledgeDocs, setKnowledgeDocs] = useState([]);
   const [activeKDocId, setActiveKDocId] = useState(null);
@@ -243,6 +243,7 @@ export default function App() {
 
   const openDate = date => {
     setSelDate(date); setView("journal"); setShowForm(false); setExpandedId(null); setIsDirty(false); setSaveMsg("");
+    setKakaoOpen(false); setScenarioOpen(false); setTradeVolOpen(false); setTradesOpen(false); setSummaryOpen(false); setExpertOpen(false);
     setData(p => p[date] ? p : { ...p, [date]: { scenarios: [], kakaoImages: [], teacherComment: "", todaySummary: "", expertEntries: [], tradeVolumeImg: null, watchlistImg: null, trades: [] } });
   };
 
