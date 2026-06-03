@@ -932,7 +932,7 @@ export default function App() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}>
                           {scName && <div style={{ fontWeight: 700, fontSize: 13, color: T.blue, marginBottom: 4 }}>{scName}</div>}
-                          <span>{scText}</span>
+                          <span style={{ whiteSpace: "pre-wrap" }}>{scText}</span>
                         </div>
                         <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
                           <button onClick={() => { setEditingScIdx(i); setEditingScName(scName); setEditingScContent(scText); setEditingScResultComment(resultComment); }}
