@@ -126,6 +126,7 @@ export default function App() {
   const [knSearch, setKnSearch] = useState("");
   const [knForm, setKnForm] = useState({ title: "", content: "", category: "" });
   const [knDirty, setKnDirty] = useState(false);
+  const [focusedKnBlock, setFocusedKnBlock] = useState(null);
   const [showAttendance, setShowAttendance] = useState(false);
   const [attendCalYear, setAttendCalYear] = useState(new Date().getFullYear());
   const [attendCalMonth, setAttendCalMonth] = useState(new Date().getMonth());
@@ -140,6 +141,7 @@ export default function App() {
   const [importPreview, setImportPreview] = useState(null);
   const [importFile, setImportFile] = useState(null);
   const importRef = useRef(null);
+  const knImgRef = useRef(null);
 
   const kakaoRef = useRef(null);
   const chartRef = useRef(null);
@@ -204,11 +206,24 @@ export default function App() {
         } else if (selDate && showExpertForm) {
           readImg(file, src => setExpertImage(src));
         }
+      } else if (tab === "지식창고" && knView === "doc") {
+        readImg(file, src => {
+          const imgBlock = { id: Date.now(), type: "image", data: src };
+          const txtBlock = { id: Date.now() + 1, type: "text", data: "" };
+          setKnForm(p => {
+            const blocks = [...(p.blocks || [])];
+            const idx = focusedKnBlock ? blocks.findIndex(b => b.id === focusedKnBlock) : blocks.length - 1;
+            const at = idx >= 0 ? idx + 1 : blocks.length;
+            blocks.splice(at, 0, imgBlock, txtBlock);
+            return { ...p, blocks };
+          });
+          setKnDirty(true);
+        });
       }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [view, showForm, selDate, parsing, expandedId, showExpertForm]);
+  }, [view, showForm, selDate, parsing, expandedId, showExpertForm, tab, knView, focusedKnBlock]);
 
   const j = selDate ? data[selDate] : null;
 
@@ -1679,16 +1694,23 @@ export default function App() {
       try { await storage.set({ data, dates, trash, attendance, knowledge: newKn }); } catch {}
     };
 
+    // 구버전(string content) → blocks 변환
+    const toBlocks = (doc) => {
+      if (doc.blocks?.length) return doc.blocks;
+      const text = doc.content || "";
+      return [{ id: Date.now(), type: "text", data: text }];
+    };
+
     const openDoc = (id) => {
       const doc = knowledge.find(d => d.id === id);
       if (!doc) return;
-      setKnForm({ title: doc.title, content: doc.content, category: doc.category || "" });
-      setSelKn(id); setKnView("doc"); setKnDirty(false);
+      setKnForm({ title: doc.title, blocks: toBlocks(doc), category: doc.category || "" });
+      setSelKn(id); setKnView("doc"); setKnDirty(false); setFocusedKnBlock(null);
     };
 
     const openNew = () => {
-      setKnForm({ title: "", content: "", category: "" });
-      setSelKn(null); setKnView("doc"); setKnDirty(false);
+      setKnForm({ title: "", blocks: [{ id: Date.now(), type: "text", data: "" }], category: "" });
+      setSelKn(null); setKnView("doc"); setKnDirty(false); setFocusedKnBlock(null);
     };
 
     const goBackKn = () => {
@@ -1700,54 +1722,133 @@ export default function App() {
       if (!knForm.title.trim()) return alert("제목을 입력해주세요.");
       let newKn;
       if (selKn) {
-        newKn = knowledge.map(d => d.id === selKn ? { ...d, title: knForm.title, content: knForm.content, category: knForm.category, updatedAt: Date.now() } : d);
+        newKn = knowledge.map(d => d.id === selKn ? { ...d, title: knForm.title, blocks: knForm.blocks, category: knForm.category, updatedAt: Date.now() } : d);
       } else {
-        const newDoc = { id: Date.now(), title: knForm.title, content: knForm.content, category: knForm.category, createdAt: Date.now(), updatedAt: Date.now() };
+        const newDoc = { id: Date.now(), title: knForm.title, blocks: knForm.blocks, category: knForm.category, createdAt: Date.now(), updatedAt: Date.now() };
         newKn = [...knowledge, newDoc];
         setSelKn(newDoc.id);
       }
-      setKnowledge(newKn);
-      setKnDirty(false);
+      setKnowledge(newKn); setKnDirty(false);
       await saveKn(newKn);
     };
 
     const deleteDoc = async () => {
       if (!window.confirm("이 문서를 삭제할까요?")) return;
       const newKn = knowledge.filter(d => d.id !== selKn);
-      setKnowledge(newKn);
-      setKnView("list");
+      setKnowledge(newKn); setKnView("list");
       await saveKn(newKn);
     };
 
-    const filtered = knowledge.filter(d =>
-      !knSearch.trim() || d.title.toLowerCase().includes(knSearch.toLowerCase()) || d.content.toLowerCase().includes(knSearch.toLowerCase())
-    ).sort((a, b) => b.updatedAt - a.updatedAt);
+    const updateBlock = (id, data) => {
+      setKnForm(p => ({ ...p, blocks: p.blocks.map(b => b.id === id ? { ...b, data } : b) }));
+      setKnDirty(true);
+    };
 
-    if (knView === "doc") return (
-      <div style={{ padding: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <button onClick={goBackKn} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 13px", fontSize: 13, color: T.sub, cursor: "pointer" }}>← 목록</button>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {knDirty && <span style={{ fontSize: 12, color: T.sub }}>● 저장 안 됨</span>}
-            {selKn && <button onClick={deleteDoc} style={{ background: "none", border: `1px solid #3a1a1a`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "7px 14px", opacity: 0.8 }}>삭제</button>}
-            <Btn onClick={saveDoc} style={{ opacity: knDirty ? 1 : 0.5 }}>저장</Btn>
+    const removeBlock = (id) => {
+      setKnForm(p => {
+        const blocks = p.blocks.filter(b => b.id !== id);
+        return { ...p, blocks: blocks.length ? blocks : [{ id: Date.now(), type: "text", data: "" }] };
+      });
+      setKnDirty(true);
+    };
+
+    const addImageBlock = (afterId) => { knImgRef.current?.click(); setFocusedKnBlock(afterId); };
+
+    const handleKnImgFile = (file) => {
+      readImg(file, src => {
+        const imgBlock = { id: Date.now(), type: "image", data: src };
+        const txtBlock = { id: Date.now() + 1, type: "text", data: "" };
+        setKnForm(p => {
+          const blocks = [...(p.blocks || [])];
+          const idx = focusedKnBlock ? blocks.findIndex(b => b.id === focusedKnBlock) : blocks.length - 1;
+          const at = idx >= 0 ? idx + 1 : blocks.length;
+          blocks.splice(at, 0, imgBlock, txtBlock);
+          return { ...p, blocks };
+        });
+        setKnDirty(true);
+      });
+    };
+
+    // 목록에서 미리보기 텍스트 추출
+    const getPreview = (doc) => {
+      if (doc.blocks) return doc.blocks.filter(b => b.type === "text").map(b => b.data).join(" ").slice(0, 120);
+      return (doc.content || "").slice(0, 120);
+    };
+
+    const filtered = knowledge.filter(d => {
+      if (!knSearch.trim()) return true;
+      const q = knSearch.toLowerCase();
+      const txt = d.blocks ? d.blocks.filter(b => b.type === "text").map(b => b.data).join(" ") : (d.content || "");
+      return d.title.toLowerCase().includes(q) || txt.toLowerCase().includes(q);
+    }).sort((a, b) => b.updatedAt - a.updatedAt);
+
+    // ── 문서 편집 뷰 ──
+    if (knView === "doc") {
+      const blocks = knForm.blocks || [{ id: Date.now(), type: "text", data: "" }];
+      return (
+        <div style={{ padding: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <button onClick={goBackKn} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 13px", fontSize: 13, color: T.sub, cursor: "pointer" }}>← 목록</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {knDirty && <span style={{ fontSize: 12, color: T.sub }}>● 저장 안 됨</span>}
+              {selKn && <button onClick={deleteDoc} style={{ background: "none", border: `1px solid #3a1a1a`, borderRadius: 8, color: T.red, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "7px 14px", opacity: 0.8 }}>삭제</button>}
+              <Btn onClick={saveDoc} style={{ opacity: knDirty ? 1 : 0.5 }}>저장</Btn>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle(), padding: "20px 24px" }}>
+            {/* 제목 */}
+            <input value={knForm.title} onChange={e => { setKnForm(p => ({ ...p, title: e.target.value })); setKnDirty(true); }}
+              style={{ ...inp, fontSize: 22, fontWeight: 800, background: "transparent", border: "none", borderBottom: `1px solid ${T.border}`, borderRadius: 0, padding: "6px 0 10px", marginBottom: 8, color: "#dce5ff" }}
+              placeholder="제목을 입력하세요" />
+            {/* 카테고리 */}
+            <input value={knForm.category} onChange={e => { setKnForm(p => ({ ...p, category: e.target.value })); setKnDirty(true); }}
+              style={{ ...inp, fontSize: 12, background: "transparent", border: "none", borderRadius: 0, padding: "2px 0", marginBottom: 20, color: T.blue, width: "auto", fontWeight: 400 }}
+              placeholder="카테고리 (선택)" />
+
+            {/* 툴바 */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${T.border}` }}>
+              <button onClick={() => addImageBlock(blocks[blocks.length - 1]?.id)}
+                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${T.inputBd}`, background: "none", color: T.sub, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                🖼️ 이미지 추가
+              </button>
+              <span style={{ fontSize: 11, color: T.sub, alignSelf: "center" }}>또는 Ctrl+V로 붙여넣기</span>
+            </div>
+            <input ref={knImgRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) handleKnImgFile(e.target.files[0]); e.target.value = ""; }} />
+
+            {/* 블록 렌더 */}
+            {blocks.map((block, idx) => (
+              <div key={block.id} style={{ marginBottom: 12 }}>
+                {block.type === "text" && (
+                  <textarea value={block.data}
+                    onChange={e => updateBlock(block.id, e.target.value)}
+                    onFocus={() => setFocusedKnBlock(block.id)}
+                    style={{ ...inp, minHeight: 120, resize: "vertical", lineHeight: 1.9, fontSize: 14, background: "transparent", border: "none", borderRadius: 0, padding: "0", whiteSpace: "pre-wrap", boxShadow: "none" }}
+                    placeholder={idx === 0 ? "내용을 자유롭게 작성하세요..." : ""} />
+                )}
+                {block.type === "image" && (
+                  <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+                    <img src={block.data} alt="" onClick={() => setLightbox(block.data)}
+                      style={{ width: "100%", borderRadius: 10, cursor: "zoom-in", display: "block" }} />
+                    <button onClick={() => removeBlock(block.id)}
+                      style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                  </div>
+                )}
+                {/* 블록 사이 이미지 추가 버튼 */}
+                {idx < blocks.length - 1 && block.type === "text" && blocks[idx + 1]?.type === "text" && (
+                  <button onClick={() => addImageBlock(block.id)}
+                    style={{ width: "100%", padding: "4px", border: `1px dashed ${T.inputBd}`, borderRadius: 6, background: "none", color: T.sub, fontSize: 11, cursor: "pointer", marginTop: 4 }}>
+                    + 이미지 삽입
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
+      );
+    }
 
-        <div style={{ ...cardStyle(), padding: 20 }}>
-          <input value={knForm.title} onChange={e => { setKnForm(p => ({ ...p, title: e.target.value })); setKnDirty(true); }}
-            style={{ ...inp, fontSize: 20, fontWeight: 700, marginBottom: 10, background: "transparent", border: "none", borderBottom: `1px solid ${T.border}`, borderRadius: 0, padding: "8px 0" }}
-            placeholder="제목을 입력하세요" />
-          <input value={knForm.category} onChange={e => { setKnForm(p => ({ ...p, category: e.target.value })); setKnDirty(true); }}
-            style={{ ...inp, fontSize: 12, background: "transparent", border: "none", borderRadius: 0, padding: "4px 0", marginBottom: 16, color: T.blue, width: "auto" }}
-            placeholder="카테고리 (선택)" />
-          <textarea value={knForm.content} onChange={e => { setKnForm(p => ({ ...p, content: e.target.value })); setKnDirty(true); }}
-            style={{ ...inp, minHeight: 480, resize: "vertical", lineHeight: 1.9, fontSize: 14, background: "transparent", border: "none", borderRadius: 0, padding: "0", whiteSpace: "pre-wrap" }}
-            placeholder="내용을 자유롭게 작성하세요..." />
-        </div>
-      </div>
-    );
-
+    // ── 목록 뷰 ──
     return (
       <div style={{ padding: 12 }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -1761,18 +1862,26 @@ export default function App() {
         {filtered.length === 0
           ? <div style={{ textAlign: "center", color: T.sub, padding: "60px 0", fontSize: 13 }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>📖</div>
-              {knSearch ? "검색 결과가 없어요." : "아직 작성한 문서가 없어요.\n+ 새 문서를 눌러 시작해보세요!"}
+              <div>{knSearch ? "검색 결과가 없어요." : "아직 작성한 문서가 없어요."}</div>
+              {!knSearch && <div style={{ fontSize: 12, marginTop: 6 }}>+ 새 문서를 눌러 시작해보세요!</div>}
             </div>
-          : filtered.map(doc => (
-            <div key={doc.id} onClick={() => openDoc(doc.id)} style={{ ...cardStyle({ cursor: "pointer" }), padding: "16px 18px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{doc.title}</span>
-                {doc.category && <span style={{ fontSize: 11, fontWeight: 600, color: T.blue, background: "#152040", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap", marginLeft: 8 }}>{doc.category}</span>}
-              </div>
-              {doc.content && <div style={{ fontSize: 13, color: T.sub, lineHeight: 1.6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{doc.content}</div>}
-              <div style={{ fontSize: 11, color: T.sub, marginTop: 8 }}>{new Date(doc.updatedAt).toLocaleDateString("ko-KR")}</div>
-            </div>
-          ))
+          : filtered.map(doc => {
+              const preview = getPreview(doc);
+              const imgCount = doc.blocks ? doc.blocks.filter(b => b.type === "image").length : 0;
+              return (
+                <div key={doc.id} onClick={() => openDoc(doc.id)} style={{ ...cardStyle({ cursor: "pointer" }), padding: "16px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{doc.title}</span>
+                    {doc.category && <span style={{ fontSize: 11, fontWeight: 600, color: T.blue, background: "#152040", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap", marginLeft: 8 }}>{doc.category}</span>}
+                  </div>
+                  {preview && <div style={{ fontSize: 13, color: T.sub, lineHeight: 1.6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{preview}</div>}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                    <span style={{ fontSize: 11, color: T.sub }}>{new Date(doc.updatedAt).toLocaleDateString("ko-KR")}</span>
+                    {imgCount > 0 && <span style={{ fontSize: 11, color: T.sub }}>🖼️ {imgCount}</span>}
+                  </div>
+                </div>
+              );
+            })
         }
       </div>
     );
