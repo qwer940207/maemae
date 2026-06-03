@@ -1667,8 +1667,8 @@ export default function App() {
     const getMark = (ds) => {
       const count = (attendance[ds] || []).filter(Boolean).length;
       if (count === 0) return null;
-      if (count === 1) return { char: "△", color: "#b0903a" };
-      if (count === 2) return { char: "△", color: T.blue };
+      if (count === 1) return { char: "▲", color: "#b0903a" };
+      if (count === 2) return { char: "▲", color: T.blue };
       return { char: "●", color: T.profit };
     };
 
@@ -1740,8 +1740,8 @@ export default function App() {
             </div>
           )}
           <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 11, color: T.sub, justifyContent: "center" }}>
-            <span><span style={{ color: "#b0903a" }}>△</span> 1개</span>
-            <span><span style={{ color: T.blue }}>△</span> 2개</span>
+            <span><span style={{ color: "#b0903a" }}>▲</span> 1개</span>
+            <span><span style={{ color: T.blue }}>▲</span> 2개</span>
             <span><span style={{ color: T.profit }}>●</span> 3개 완료</span>
           </div>
         </div>
