@@ -903,6 +903,52 @@ export default function App() {
           </div>
         </div>
 
+        {/* 거래대금 / 관종 */}
+        <div style={cardStyle()}>
+          <div onClick={() => setTradeVolOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!tradeVolOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>📈</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
+              <span style={{ fontSize: 11, color: T.sub }}>전일 거래대금과 관심종목</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: tradeVolOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
+          </div>
+          {tradeVolOpen && <div style={{ padding: 16, display: "flex", gap: 12 }}>
+            {[
+              { label: "거래대금", field: "tradeVolumeImg", ref: tradeVolumeRef },
+              { label: "관종",    field: "watchlistImg",  ref: watchlistRef  },
+            ].map(({ label, field, ref }) => (
+              <div key={field} style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>{label}</div>
+                {j[field] ? (
+                  <div style={{ position: "relative" }}>
+                    <img src={j[field]} alt={label} onClick={() => setLightbox(j[field])}
+                      style={{ width: "100%", borderRadius: 8, display: "block", cursor: "zoom-in" }} />
+                    <button onClick={() => { if (!window.confirm(`${label} 사진을 삭제하시겠어요?`)) return; upd({ [field]: null }); }}
+                      style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div
+                      tabIndex={0}
+                      onFocus={() => { focusedImgFieldRef.current = field === "tradeVolumeImg" ? "tradeVolume" : "watchlist"; }}
+                      onBlur={() => { focusedImgFieldRef.current = null; }}
+                      style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "28px 10px", textAlign: "center", background: T.input, fontSize: 12, color: T.sub, outline: "none", cursor: "default" }}>
+                      📋 클릭 후 Ctrl+V
+                    </div>
+                    <button onClick={() => ref.current?.click()}
+                      style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "6px", fontSize: 11, color: T.sub, cursor: "pointer" }}>
+                      📁 파일 선택
+                    </button>
+                  </div>
+                )}
+                <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => { upd({ [field]: src }); }); }} />
+              </div>
+            ))}
+          </div>}
+        </div>
+
+
         {/* 시나리오 */}
         <div style={cardStyle()}>
           <div onClick={() => setScenarioOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!scenarioOpen && { borderBottom: "none" }) }) }}>
@@ -1057,52 +1103,6 @@ export default function App() {
             )}
           </div>}
         </div>
-
-        {/* 거래대금 / 관종 */}
-        <div style={cardStyle()}>
-          <div onClick={() => setTradeVolOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!tradeVolOpen && { borderBottom: "none" }) }) }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 17 }}>📈</span>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
-              <span style={{ fontSize: 11, color: T.sub }}>전일 거래대금과 관심종목</span>
-            </div>
-            <span style={{ color: T.sub, display: "inline-block", transform: tradeVolOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
-          </div>
-          {tradeVolOpen && <div style={{ padding: 16, display: "flex", gap: 12 }}>
-            {[
-              { label: "거래대금", field: "tradeVolumeImg", ref: tradeVolumeRef },
-              { label: "관종",    field: "watchlistImg",  ref: watchlistRef  },
-            ].map(({ label, field, ref }) => (
-              <div key={field} style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>{label}</div>
-                {j[field] ? (
-                  <div style={{ position: "relative" }}>
-                    <img src={j[field]} alt={label} onClick={() => setLightbox(j[field])}
-                      style={{ width: "100%", borderRadius: 8, display: "block", cursor: "zoom-in" }} />
-                    <button onClick={() => { if (!window.confirm(`${label} 사진을 삭제하시겠어요?`)) return; upd({ [field]: null }); }}
-                      style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: T.red, border: "1px solid #0d1018", color: "#fff", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div
-                      tabIndex={0}
-                      onFocus={() => { focusedImgFieldRef.current = field === "tradeVolumeImg" ? "tradeVolume" : "watchlist"; }}
-                      onBlur={() => { focusedImgFieldRef.current = null; }}
-                      style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "28px 10px", textAlign: "center", background: T.input, fontSize: 12, color: T.sub, outline: "none", cursor: "default" }}>
-                      📋 클릭 후 Ctrl+V
-                    </div>
-                    <button onClick={() => ref.current?.click()}
-                      style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "6px", fontSize: 11, color: T.sub, cursor: "pointer" }}>
-                      📁 파일 선택
-                    </button>
-                  </div>
-                )}
-                <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => { upd({ [field]: src }); }); }} />
-              </div>
-            ))}
-          </div>}
-        </div>
-
         {/* 카톡 캡처 / 선생님 코멘트 */}
         <div style={cardStyle()}>
           <div onClick={() => setKakaoOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!kakaoOpen && { borderBottom: "none" }) }) }}>
