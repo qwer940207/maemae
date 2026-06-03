@@ -2117,7 +2117,7 @@ export default function App() {
 
   // ──────────── MAIN ────────────
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif", fontSize: 14 }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Noto Sans KR', sans-serif", fontSize: 14 }}>
       {renderCalendar()}
       {renderDashCalendar()}
       {renderAttendance()}
