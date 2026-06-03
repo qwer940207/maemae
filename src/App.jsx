@@ -165,9 +165,26 @@ export default function App() {
         if (p) {
           if (p.data) setData(p.data);
           if (p.dates) setDates(p.dates);
-          if (p.knowledgeDocs) setKnowledgeDocs(p.knowledgeDocs);
           if (p.attendance) setAttendance(p.attendance);
           if (p.knowledge) setKnowledge(p.knowledge);
+          // 기존 knowledge 데이터를 새 knowledgeDocs 형식으로 마이그레이션
+          const migrateBlock = b => ({
+            id: `kb${b.id || Date.now()}${Math.random().toString(36).slice(2)}`,
+            type: b.type === "image" ? "image" : "paragraph",
+            content: b.data || b.content || b.text || ""
+          });
+          const migrateDoc = kn => ({
+            id: `kdm-${kn.id || Date.now()}`,
+            section: "지식창고",
+            title: kn.title || "",
+            createdAt: kn.createdAt || Date.now(),
+            blocks: kn.blocks?.length ? kn.blocks.map(migrateBlock)
+              : [{ id: `kb${Date.now()}`, type: "paragraph", content: kn.content || "" }]
+          });
+          const loadedKDocs = p.knowledgeDocs || [];
+          const hasVaultDocs = loadedKDocs.some(d => d.section === "지식창고");
+          const oldKnDocs = (!hasVaultDocs && p.knowledge?.length) ? p.knowledge.map(migrateDoc) : [];
+          setKnowledgeDocs([...loadedKDocs.map(d => ({ section: "강의록", ...d })), ...oldKnDocs]);
           if (p.trash) {
             const now = Date.now();
             const cleaned = Object.fromEntries(
@@ -210,19 +227,6 @@ export default function App() {
         } else if (selDate && showExpertForm) {
           readImg(file, src => setExpertImage(src));
         }
-      } else if (tab === "지식창고" && knView === "doc") {
-        readImg(file, src => {
-          const imgBlock = { id: Date.now(), type: "image", data: src };
-          const txtBlock = { id: Date.now() + 1, type: "text", data: "" };
-          setKnForm(p => {
-            const blocks = [...(p.blocks || [])];
-            const idx = focusedKnBlock ? blocks.findIndex(b => b.id === focusedKnBlock) : blocks.length - 1;
-            const at = idx >= 0 ? idx + 1 : blocks.length;
-            blocks.splice(at, 0, imgBlock, txtBlock);
-            return { ...p, blocks };
-          });
-          setKnDirty(true);
-        });
       }
     };
     window.addEventListener("paste", onPaste);
@@ -232,7 +236,7 @@ export default function App() {
   const j = selDate ? data[selDate] : null;
 
   const save = async (d, dl, tr, att = attendance, kn = knowledge) => {
-    await storage.set({ data: d, dates: dl, trash: tr, attendance: att, knowledge: kn });
+    await storage.set({ data: d, dates: dl, trash: tr, attendance: att, knowledge: kn, knowledgeDocs });
   };
 
   const upd = u => { if (!selDate) return; setData(p => ({ ...p, [selDate]: { ...p[selDate], ...u } })); setIsDirty(true); };
@@ -274,14 +278,16 @@ export default function App() {
     return nb.id;
   };
   const kDelBlock = (bid, blocks) => { if (blocks.length <= 1) return; setKnowledgeDocs(p => p.map(d => d.id !== activeKDocId ? d : { ...d, blocks: d.blocks.filter(b => b.id !== bid) })); setKDirty(true); };
-  const kAddDoc = () => { const d = { id: `kd${Date.now()}`, title: "", createdAt: Date.now(), blocks: [kNewBlock("h1")] }; setKnowledgeDocs(p => [...p, d]); setActiveKDocId(d.id); setKDirty(true); };
+  const [kSaveMsg, setKSaveMsg] = useState("");
+  const kAddDoc = (section = "강의록") => { const d = { id: `kd${Date.now()}`, section, title: "", createdAt: Date.now(), blocks: [kNewBlock("h1")] }; setKnowledgeDocs(p => [...p, d]); setActiveKDocId(d.id); setKDirty(true); };
+  const kManualSave = async () => { try { await storage.set({ data, dates, trash, attendance, knowledge, knowledgeDocs }); setKSaveMsg("저장됐어요 ✓"); setKDirty(false); } catch { setKSaveMsg("저장 실패 ✕"); } setTimeout(() => setKSaveMsg(""), 2500); };
   const kDelDoc = did => { setKnowledgeDocs(p => p.filter(d => d.id !== did)); if (activeKDocId === did) setActiveKDocId(null); setKDirty(true); };
 
   // 지식창고 자동 저장
   useEffect(() => {
     if (!kDirty) return;
     const t = setTimeout(async () => {
-      try { await storage.set({ data, dates, trash, knowledgeDocs }); setKDirty(false); } catch {}
+      try { await storage.set({ data, dates, trash, attendance, knowledge, knowledgeDocs }); setKDirty(false); } catch {}
     }, 2000);
     return () => clearTimeout(t);
   }, [kDirty, knowledgeDocs, data, dates, trash]);
@@ -1545,8 +1551,10 @@ export default function App() {
   };
 
   // ──────────── KNOWLEDGE ────────────
-  const renderKnowledge = () => {
-    const activeDoc = knowledgeDocs.find(d => d.id === activeKDocId) || null;
+  const renderKnowledge = (section = "강의록") => {
+    const sectionDocs = knowledgeDocs.filter(d => (d.section || "강의록") === section);
+    const activeDoc = sectionDocs.find(d => d.id === activeKDocId) || null;
+    const icon = section === "강의록" ? "📚" : "📖";
     const BLOCK_BTNS = [
       { type: "paragraph", label: "📝 텍스트" },
       { type: "h1", label: "H1 제목" },
@@ -1557,7 +1565,7 @@ export default function App() {
       { type: "divider", label: "— 구분선" },
     ];
     const addBlockAtEnd = (type) => {
-      const doc = knowledgeDocs.find(d => d.id === activeKDocId);
+      const doc = sectionDocs.find(d => d.id === activeKDocId);
       if (!doc) return;
       const lastId = doc.blocks[doc.blocks.length - 1]?.id;
       const newId = kAddBlockAfter(lastId || "", type);
@@ -1577,12 +1585,12 @@ export default function App() {
         {/* 사이드바 */}
         <div style={{ width: 220, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: T.card }}>
           <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>📚 강의록</span>
-            <button onClick={kAddDoc} style={{ background: T.blue, border: "none", borderRadius: 6, color: "#fff", fontSize: 18, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+            <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{icon} {section}</span>
+            <button onClick={() => kAddDoc(section)} style={{ background: T.blue, border: "none", borderRadius: 6, color: "#fff", fontSize: 18, width: 26, height: 26, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
-            {knowledgeDocs.length === 0 && <div style={{ padding: "24px 16px", textAlign: "center", color: T.sub, fontSize: 12 }}>+ 버튼으로<br/>새 문서를 만드세요</div>}
-            {knowledgeDocs.map(doc => (
+            {sectionDocs.length === 0 && <div style={{ padding: "24px 16px", textAlign: "center", color: T.sub, fontSize: 12 }}>+ 버튼으로<br/>새 문서를 만드세요</div>}
+            {sectionDocs.map(doc => (
               <div key={doc.id} style={{ display: "flex", alignItems: "center", padding: "7px 12px", cursor: "pointer", background: doc.id === activeKDocId ? "rgba(59,130,246,0.12)" : "transparent", borderLeft: `3px solid ${doc.id === activeKDocId ? T.blue : "transparent"}` }}
                 onClick={() => setActiveKDocId(doc.id)}>
                 <span style={{ flex: 1, fontSize: 13, color: doc.id === activeKDocId ? T.blue : T.text, fontWeight: doc.id === activeKDocId ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1600,11 +1608,18 @@ export default function App() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, color: T.sub }}>
             <div style={{ fontSize: 52 }}>📄</div>
             <div style={{ fontSize: 15 }}>문서를 선택하거나 새로 만드세요</div>
-            <button onClick={kAddDoc} style={{ padding: "10px 28px", borderRadius: 10, background: T.blue, color: "#fff", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>+ 새 문서</button>
+            <button onClick={() => kAddDoc(section)} style={{ padding: "10px 28px", borderRadius: 10, background: T.blue, color: "#fff", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>+ 새 문서</button>
           </div>
         ) : (
           <div style={{ flex: 1, overflowY: "auto" }}>
-            <div style={{ maxWidth: 820, margin: "0 auto", padding: "56px 64px 120px" }}>
+            <div style={{ maxWidth: 820, margin: "0 auto", padding: "24px 64px 120px" }}>
+              {/* 저장/삭제 버튼 */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 20 }}>
+                {kSaveMsg && <span style={{ fontSize: 13, fontWeight: 600, color: kSaveMsg.includes("✓") ? T.green : T.red, alignSelf: "center" }}>{kSaveMsg}</span>}
+                {kDirty && !kSaveMsg && <span style={{ fontSize: 12, color: T.sub, alignSelf: "center" }}>잠시 후 자동 저장...</span>}
+                <button onClick={kManualSave} style={{ padding: "7px 18px", borderRadius: 8, background: T.blue, color: "#fff", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>저장</button>
+                <button onClick={() => { if (window.confirm("이 문서를 삭제하시겠어요?")) kDelDoc(activeDoc.id); }} style={{ padding: "7px 14px", borderRadius: 8, background: "none", color: T.red, border: `1px solid ${T.red}`, fontWeight: 600, fontSize: 13, cursor: "pointer", opacity: 0.8 }}>삭제</button>
+              </div>
               {/* 문서 제목 */}
               <textarea data-kblock
                 value={activeDoc.title}
@@ -2026,12 +2041,12 @@ export default function App() {
           </div>
         </div>
       </div>
-      {tab === "강의록" ? renderKnowledge() : (
+      {tab === "강의록" ? renderKnowledge("강의록") : tab === "지식창고" ? renderKnowledge("지식창고") : (
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           {tab === "대시보드" && renderDashboard()}
           {tab === "매매일지" && (view === "list" ? renderList() : renderJournal())}
           {tab === "매매분석" && renderAnalysis()}
-          {!["대시보드","매매일지","매매분석","강의록"].includes(tab) && (
+          {!["대시보드","매매일지","매매분석","강의록","지식창고"].includes(tab) && (
             <div style={{ textAlign: "center", color: T.sub, padding: "80px 20px" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{NAV_TABS.find(t => t.id === tab)?.icon}</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{tab}</div>
