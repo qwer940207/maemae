@@ -556,23 +556,6 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "13px 16px", borderBottom: `1px solid ${T.border}` }}><span style={{ fontWeight: 600, fontSize: 14, color: T.sub }}>최근 매매</span></div>
-          {recent.length === 0
-            ? <div style={{ padding: "32px", textAlign: "center", color: T.sub, fontSize: 13 }}>매매 내역이 없습니다.<br /><span style={{ fontSize: 11, marginTop: 4, display: "block" }}>매매일지에서 종목을 추가해보세요.</span></div>
-            : recent.map((t, i) => {
-              const pos = (t.returnRate ?? 0) >= 0;
-              return (
-                <div key={i} style={{ padding: "13px 16px", borderBottom: i < recent.length - 1 ? `1px solid ${T.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{truncName(t.name)}</div><div style={{ fontSize: 11, color: T.sub }}>{fmtDate(t.date)}</div></div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 14 }}>{pos ? "" : "-"}{fmtMoney(t.profit)}</div>
-                    <div style={{ fontSize: 12, color: pos ? T.profit : T.loss }}>{pos ? "+" : ""}{(t.returnRate ?? 0).toFixed(2)}%</div>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
       </div>
     );
   };
