@@ -1158,9 +1158,16 @@ export default function App() {
                   </>
                 )}
                 {!(j.kakaoImages || []).length && (
-                  <div onClick={() => kakaoRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "16px 10px", textAlign: "center", cursor: "pointer", background: T.input }}>
-                    <div style={{ fontSize: 20, marginBottom: 3 }}>🖼️</div>
-                    <div style={{ color: T.sub, fontSize: 11 }}>클릭 또는 Ctrl+V</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div tabIndex={0}
+                      style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "20px 10px", textAlign: "center", background: T.input, outline: "none", cursor: "default" }}>
+                      <div style={{ fontSize: 20, marginBottom: 3 }}>🖼️</div>
+                      <div style={{ color: T.sub, fontSize: 11 }}>클릭 후 Ctrl+V</div>
+                    </div>
+                    <button onClick={() => kakaoRef.current?.click()}
+                      style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 7, padding: "5px", fontSize: 11, color: T.sub, cursor: "pointer" }}>
+                      📁 파일 선택
+                    </button>
                   </div>
                 )}
                 <input ref={kakaoRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); }))} />
