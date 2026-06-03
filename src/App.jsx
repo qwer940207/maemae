@@ -895,7 +895,20 @@ export default function App() {
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+                {(() => {
+                  const idx = dates.indexOf(selDate);
+                  const hasPrev = idx < dates.length - 1; // dates는 내림차순이므로 index 크면 이전 날
+                  const hasNext = idx > 0;
+                  return (
+                    <>
+                      <button onClick={() => hasPrev && openDate(dates[idx + 1])} disabled={!hasPrev}
+                        style={{ background: "none", border: `1px solid ${hasPrev ? T.inputBd : "transparent"}`, borderRadius: 6, padding: "4px 10px", color: hasPrev ? T.sub : "transparent", fontSize: 14, cursor: hasPrev ? "pointer" : "default" }}>‹</button>
+                      <div style={{ fontWeight: 800, fontSize: 20, color: "#dce5ff" }}>{fmtDate(selDate)}</div>
+                      <button onClick={() => hasNext && openDate(dates[idx - 1])} disabled={!hasNext}
+                        style={{ background: "none", border: `1px solid ${hasNext ? T.inputBd : "transparent"}`, borderRadius: 6, padding: "4px 10px", color: hasNext ? T.sub : "transparent", fontSize: 14, cursor: hasNext ? "pointer" : "default" }}>›</button>
+                    </>
+                  );
+                })()}
                 <button onClick={() => { setNewDateInput(selDate); setEditingDate(true); }}
                   style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "4px 8px", color: T.sub, fontSize: 12, cursor: "pointer" }}>✏️ 수정</button>
               </div>
