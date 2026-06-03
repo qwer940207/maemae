@@ -81,6 +81,10 @@ export default function App() {
   const [dates, setDates] = useState(INIT_DATES);
   const [trash, setTrash] = useState({});
   const [kakaoOpen, setKakaoOpen] = useState(true);
+  const [scenarioOpen, setScenarioOpen] = useState(true);
+  const [tradeVolOpen, setTradeVolOpen] = useState(true);
+  const [tradesOpen, setTradesOpen] = useState(true);
+  const [summaryOpen, setSummaryOpen] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
@@ -849,12 +853,15 @@ export default function App() {
 
         {/* 시나리오 */}
         <div style={cardStyle()}>
-          <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>🎯</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>시나리오</span>
-            <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
+          <div onClick={() => setScenarioOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!scenarioOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>🎯</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>시나리오</span>
+              <span style={{ fontSize: 11, color: T.sub }}>전날 미리 작성 · 당일 결과 체크</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: scenarioOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
-          <div style={{ padding: 16 }}>
+          {scenarioOpen && <div style={{ padding: 16 }}>
             {/* 시장분석 */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 4 }}>시장분석</div>
@@ -996,17 +1003,20 @@ export default function App() {
                 + 시나리오 추가
               </button>
             )}
-          </div>
+          </div>}
         </div>
 
         {/* 거래대금 / 관종 */}
         <div style={cardStyle()}>
-          <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>📈</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
-            <span style={{ fontSize: 11, color: T.sub }}>전일 거래대금과 관심종목</span>
+          <div onClick={() => setTradeVolOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!tradeVolOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>📈</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>거래대금 / 관종</span>
+              <span style={{ fontSize: 11, color: T.sub }}>전일 거래대금과 관심종목</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: tradeVolOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
-          <div style={{ padding: 16, display: "flex", gap: 12 }}>
+          {tradeVolOpen && <div style={{ padding: 16, display: "flex", gap: 12 }}>
             {[
               { label: "거래대금", field: "tradeVolumeImg", ref: tradeVolumeRef },
               { label: "관종",    field: "watchlistImg",  ref: watchlistRef  },
@@ -1038,7 +1048,7 @@ export default function App() {
                 <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) readImg(f, src => { upd({ [field]: src }); }); }} />
               </div>
             ))}
-          </div>
+          </div>}
         </div>
 
         {/* 카톡 캡처 / 선생님 코멘트 */}
@@ -1206,11 +1216,15 @@ export default function App() {
 
         {/* 매매내역 */}
         <div style={cardStyle({ marginBottom: 0 })}>
-          <div style={hdStyle({ justifyContent: "space-between" })}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 17 }}>📊</span><span style={{ fontWeight: 700, fontSize: 15 }}>매매내역</span></div>
-            <Btn style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setShowForm(true)}>+ 새 종목</Btn>
+          <div style={{ ...hdStyle({ justifyContent: "space-between", ...(!tradesOpen && { borderBottom: "none" }) }) }}>
+            <div onClick={() => setTradesOpen(p => !p)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}>
+              <span style={{ fontSize: 17 }}>📊</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>매매내역</span>
+              <span style={{ color: T.sub, display: "inline-block", transform: tradesOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s", marginLeft: 4 }}>▲</span>
+            </div>
+            {tradesOpen && <Btn style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setShowForm(true)}>+ 새 종목</Btn>}
           </div>
-          {showForm && (
+          {tradesOpen && showForm && (
             <div style={{ padding: 16, borderBottom: `1px solid ${T.border}` }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: "#dce5ff" }}>새 종목</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 12 }}>
@@ -1305,7 +1319,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 8 }}><Btn onClick={saveTrade}>추가</Btn><Btn variant="ghost" onClick={() => setShowForm(false)}>취소</Btn></div>
             </div>
           )}
-          <div style={{ padding: "8px 10px 10px" }}>
+          {tradesOpen && <div style={{ padding: "8px 10px 10px" }}>
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
@@ -1436,21 +1450,24 @@ export default function App() {
               );
             })}
             {!trades.length && !showForm && <div style={{ textAlign: "center", color: T.sub, padding: "24px 0", fontSize: 13 }}>아직 매매 내역이 없습니다.</div>}
-          </div>
+          </div>}
         </div>
 
         {/* 오늘의 정리 */}
         <div style={cardStyle()}>
-          <div style={hdStyle()}>
-            <span style={{ fontSize: 17 }}>📝</span>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
-            <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+          <div onClick={() => setSummaryOpen(p => !p)} style={{ ...hdStyle({ cursor: "pointer", justifyContent: "space-between", ...(!summaryOpen && { borderBottom: "none" }) }) }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 17 }}>📝</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>오늘의 정리</span>
+              <span style={{ fontSize: 11, color: T.sub }}>오늘 하루를 자유롭게 정리해보세요</span>
+            </div>
+            <span style={{ color: T.sub, display: "inline-block", transform: summaryOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
-          <div style={{ padding: 16 }}>
+          {summaryOpen && <div style={{ padding: 16 }}>
             <textarea value={j.todaySummary || ""} onChange={e => upd({ todaySummary: e.target.value })}
               style={{ ...inp, minHeight: 160, resize: "vertical", lineHeight: 1.85, fontSize: 13 }}
               placeholder="오늘의 시장 흐름, 내 심리 상태, 잘한 점, 아쉬운 점 등을 자유롭게 적어보세요..." />
-          </div>
+          </div>}
         </div>
 
         {/* 저장 / 일지 삭제 */}
