@@ -1246,8 +1246,8 @@ export default function App() {
                               ))}
                             </div>
                           )}
-                          <div style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub }}>
-                            📋 Ctrl+V로 사진 추가
+                          <div tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, outline: "none", cursor: "default" }}>
+                            📋 클릭 후 Ctrl+V
                           </div>
                         </div>
                         {/* 편집: 코멘트 + 버튼 */}
@@ -1312,8 +1312,8 @@ export default function App() {
                       </div>
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "10px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6 }}>
-                        📋 Ctrl+V로 사진 추가
+                      <div tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "10px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6, outline: "none", cursor: "default" }}>
+                        📋 클릭 후 Ctrl+V
                       </div>
                       <button onClick={() => expertRef.current?.click()}
                         style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "5px", fontSize: 11, color: T.sub, cursor: "pointer" }}>📁 파일 선택</button>
