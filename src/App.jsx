@@ -240,18 +240,18 @@ export default function App() {
             ...p,
             [expandedId]: { ...(p[expandedId] || {}), chartImages: [...(p[expandedId]?.chartImages || []), src] }
           })));
-        } else if (selDate && !showExpertForm && editingExpertIdx === null) {
+        } else if (selDate) {
           if (focusedImgFieldRef.current === "tradeVolume") {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], tradeVolumeImg: src } })); setIsDirty(true); });
           } else if (focusedImgFieldRef.current === "watchlist") {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], watchlistImg: src } })); setIsDirty(true); });
+          } else if (focusedImgFieldRef.current === "expertImg" && showExpertForm) {
+            readImg(file, src => setExpertImages(p => [...p, src]));
+          } else if (focusedImgFieldRef.current === "expertImg" && editingExpertIdx !== null) {
+            readImg(file, src => setEditingExpertImages(p => [...p, src]));
           } else {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
           }
-        } else if (selDate && showExpertForm) {
-          readImg(file, src => setExpertImages(p => [...p, src]));
-        } else if (selDate && editingExpertIdx !== null) {
-          readImg(file, src => setEditingExpertImages(p => [...p, src]));
         }
       }
     };
@@ -1161,7 +1161,7 @@ export default function App() {
             <span style={{ color: T.sub, display: "inline-block", transform: kakaoOpen ? "none" : "rotate(180deg)", transition: "transform 0.2s" }}>▲</span>
           </div>
           {kakaoOpen && (
-            <div style={{ padding: 16, display: "flex", gap: 16, alignItems: "flex-start" }}>
+            <div onClick={() => { focusedImgFieldRef.current = null; }} style={{ padding: 16, display: "flex", gap: 16, alignItems: "flex-start" }}>
               {/* 왼쪽: 카톡 캡처 사진 */}
               <div style={{ flex: "0 0 45%", minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 8 }}>카톡 캡처</div>
@@ -1340,7 +1340,7 @@ export default function App() {
                       </div>
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "10px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6, outline: "none", cursor: "default" }}>
+                      <div tabIndex={0} onClick={() => { focusedImgFieldRef.current = "expertImg"; }} onFocus={() => { focusedImgFieldRef.current = "expertImg"; }} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "10px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, lineHeight: 1.6, outline: "none", cursor: "pointer" }}>
                         📋 클릭 후 Ctrl+V
                       </div>
                       <button onClick={() => expertRef.current?.click()}
