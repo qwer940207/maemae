@@ -719,7 +719,7 @@ export default function App() {
             {top5lossReasons.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5lossReasons.map(([label, { count, profit }], i) => <CountItem key={i} label={label} count={count} profit={profit} />)}
           </div>
           <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.red, marginBottom: 14 }}>어긴 원칙 TOP 5</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.blue, marginBottom: 14 }}>어긴 원칙 TOP 5</div>
             {top5principles.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5principles.map(([label, { count, profit }], i) => <CountItem key={i} label={label} count={count} profit={profit} />)}
           </div>
         </div>
