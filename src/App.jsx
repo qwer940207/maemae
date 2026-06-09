@@ -598,16 +598,31 @@ export default function App() {
     const merged = Object.values(mergedMap);
     const top5g = merged.filter(t => t.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
     const top5l = merged.filter(t => t.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
-    // 매매별 수익 TOP 5 (개별 매매)
-    const top5trades = [...filtered].sort((a, b) => b.profit - a.profit).slice(0, 5);
-    // 손실 이유 TOP 5
+    // 태그별 수익 TOP 5 (대분류→중분류→소분류 기준 합산)
+    const tagMap = {};
+    filtered.forEach(t => {
+      const key = [t.tagLarge, t.tagMedium, t.tagSmall].filter(v => v && v !== "소분류 없음").join(" › ");
+      if (!tagMap[key]) tagMap[key] = { key, profit: 0, count: 0 };
+      tagMap[key].profit += t.profit;
+      tagMap[key].count++;
+    });
+    const top5tags = Object.values(tagMap).sort((a, b) => b.profit - a.profit).slice(0, 5);
+    // 손실 이유 TOP 5 (횟수 + 합산 손익)
     const lossReasonMap = {};
-    filtered.forEach(t => (t.lossReasons || []).forEach(r => { lossReasonMap[r] = (lossReasonMap[r] || 0) + 1; }));
-    const top5lossReasons = Object.entries(lossReasonMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    // 어긴 원칙 TOP 5
+    filtered.forEach(t => (t.lossReasons || []).forEach(r => {
+      if (!lossReasonMap[r]) lossReasonMap[r] = { count: 0, profit: 0 };
+      lossReasonMap[r].count++;
+      lossReasonMap[r].profit += t.profit;
+    }));
+    const top5lossReasons = Object.entries(lossReasonMap).sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+    // 어긴 원칙 TOP 5 (횟수 + 합산 손익)
     const principleMap = {};
-    filtered.forEach(t => (t.brokenPrinciples || []).forEach(r => { principleMap[r] = (principleMap[r] || 0) + 1; }));
-    const top5principles = Object.entries(principleMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    filtered.forEach(t => (t.brokenPrinciples || []).forEach(r => {
+      if (!principleMap[r]) principleMap[r] = { count: 0, profit: 0 };
+      principleMap[r].count++;
+      principleMap[r].profit += t.profit;
+    }));
+    const top5principles = Object.entries(principleMap).sort((a, b) => b[1].count - a[1].count).slice(0, 5);
 
     const StatCard = ({ label, value, color, icon }) => (
       <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
@@ -631,27 +646,30 @@ export default function App() {
         <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{t.count > 1 ? `${t.count}번 매매 합산` : fmtDate(t.date)}</div>
       </div>
     );
-    const TradeItem = ({ t }) => {
+    const TagItem = ({ t }) => {
       const pos = t.profit >= 0;
       return (
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-              <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
-              <Tag label={[t.tagSmall, t.tagMedium].filter(v => v && v !== "소분류 없음").join(" ")} pos={pos} />
-            </div>
-            <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: T.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.key || "-"}</span>
+            <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0 }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
           </div>
-          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{fmtDate(t.date)}</div>
+          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{t.count}번 매매</div>
         </div>
       );
     };
-    const CountItem = ({ label, count, color }) => (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{label}</span>
-        <span style={{ padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700, background: `rgba(${color},0.13)`, color: `rgb(${color})` }}>{count}회</span>
-      </div>
-    );
+    const CountItem = ({ label, count, profit }) => {
+      const pos = profit >= 0;
+      return (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: T.text, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+            <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0 }}>{pos ? "+" : "-"}{fmtMoney(profit)}</span>
+          </div>
+          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{count}회</div>
+        </div>
+      );
+    };
     return (
       <div style={{ padding: 12 }}>
         {/* 기간 선택 */}
@@ -694,15 +712,15 @@ export default function App() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
           <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: T.profit, marginBottom: 14 }}>매매별 수익 TOP 5</div>
-            {top5trades.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5trades.map((t, i) => <TradeItem key={i} t={t} />)}
+            {top5tags.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5tags.map((t, i) => <TagItem key={i} t={t} />)}
           </div>
           <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: T.loss, marginBottom: 14 }}>손실 이유 TOP 5</div>
-            {top5lossReasons.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5lossReasons.map(([label, count], i) => <CountItem key={i} label={label} count={count} color="37,99,235" />)}
+            {top5lossReasons.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5lossReasons.map(([label, { count, profit }], i) => <CountItem key={i} label={label} count={count} profit={profit} />)}
           </div>
           <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: T.red, marginBottom: 14 }}>어긴 원칙 TOP 5</div>
-            {top5principles.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5principles.map(([label, count], i) => <CountItem key={i} label={label} count={count} color="229,62,82" />)}
+            {top5principles.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5principles.map(([label, { count, profit }], i) => <CountItem key={i} label={label} count={count} profit={profit} />)}
           </div>
         </div>
       </div>
