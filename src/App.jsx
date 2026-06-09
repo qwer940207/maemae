@@ -614,7 +614,7 @@ export default function App() {
       lossReasonMap[r].count++;
       lossReasonMap[r].profit += t.profit;
     }));
-    const top5lossReasons = Object.entries(lossReasonMap).sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+    const top5lossReasons = Object.entries(lossReasonMap).sort((a, b) => a[1].profit - b[1].profit).slice(0, 5);
     // 어긴 원칙 TOP 5 (횟수 + 합산 손익)
     const principleMap = {};
     filtered.forEach(t => (t.brokenPrinciples || []).forEach(r => {
@@ -622,7 +622,7 @@ export default function App() {
       principleMap[r].count++;
       principleMap[r].profit += t.profit;
     }));
-    const top5principles = Object.entries(principleMap).sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+    const top5principles = Object.entries(principleMap).sort((a, b) => a[1].profit - b[1].profit).slice(0, 5);
 
     const StatCard = ({ label, value, color, icon }) => (
       <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
