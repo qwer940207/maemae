@@ -39,7 +39,8 @@ const SMALL_TAGS = {
 };
 const DEFAULT_MEDIUM = MEDIUM_TAGS["종배"][0]; // "상따"
 const DEFAULT_SMALL = SMALL_TAGS[DEFAULT_MEDIUM]?.[0] || "";
-const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주", "엇박", "상따 수수료"];
+const LOSS_REASONS = ["신규주", "음봉 비중 오버", "추격매수", "뒷구간 하락", "잡주", "엇박", "상따 수수료", "기타"];
+const BROKEN_PRINCIPLES = ["목표 달성 후 본절", "추가매수 후 본절", "기간 손절", "계좌 10% 손절", "손절 계획", "매매시간 아님"];
 const ATTEND_ITEMS = ["매매일지를 작성했나요", "원칙을 잘 지켰나요", "강의를 복습했나요"];
 const NAV_TABS = [
   { id: "대시보드", icon: "📊" },
@@ -107,7 +108,7 @@ export default function App() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
+  const [form, setForm] = useState({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], lossReasonsOther: "", brokenPrinciples: [], chartImages: [], reason: "", reflection: "" });
   const [loaded, setLoaded] = useState(false);
   const [showScenarioInput, setShowScenarioInput] = useState(false);
   const [scenarioInput, setScenarioInput] = useState("");
@@ -397,8 +398,8 @@ export default function App() {
 
   const saveTrade = () => {
     if (!form.name.trim()) return;
-    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, extraTags: form.extraTags || [], lossReasons: form.lossReasons, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
-    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], chartImages: [], reason: "", reflection: "" });
+    upd({ trades: [...(j?.trades || []), { id: Date.now(), name: form.name.trim(), returnRate: parseFloat(form.returnRate) || 0, profit: parseInt(form.profit.replace(/[^0-9-]/g, "")) || 0, tagLarge: form.tagLarge, tagMedium: form.tagMedium, tagSmall: form.tagSmall, extraTags: form.extraTags || [], lossReasons: form.lossReasons, lossReasonsOther: form.lossReasonsOther, brokenPrinciples: form.brokenPrinciples, chartImages: form.chartImages, reason: form.reason, reflection: form.reflection }] });
+    setForm({ name: "", returnRate: "", profit: "", tagLarge: "종배", tagMedium: DEFAULT_MEDIUM, tagSmall: DEFAULT_SMALL, extraTags: [], lossReasons: [], lossReasonsOther: "", brokenPrinciples: [], chartImages: [], reason: "", reflection: "" });
     setFormChartIdx(0);
     setShowForm(false);
   };
@@ -1449,6 +1450,22 @@ export default function App() {
                     </label>
                   ))}
                 </div>
+                {form.lossReasons.includes("기타") && (
+                  <input style={{ ...inp, marginTop: 8 }} placeholder="기타 손실 이유를 입력하세요" value={form.lossReasonsOther} onChange={e => setForm(p => ({ ...p, lossReasonsOther: e.target.value }))} />
+                )}
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>어긴 원칙</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {BROKEN_PRINCIPLES.map(r => (
+                    <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                      <input type="checkbox" checked={(form.brokenPrinciples || []).includes(r)}
+                        onChange={() => setForm(p => ({ ...p, brokenPrinciples: (p.brokenPrinciples || []).includes(r) ? p.brokenPrinciples.filter(x => x !== r) : [...(p.brokenPrinciples || []), r] }))}
+                        style={{ accentColor: T.red, width: 13, height: 13 }} />
+                      <span style={{ color: (form.brokenPrinciples || []).includes(r) ? T.red : T.sub }}>{r}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
@@ -1484,10 +1501,10 @@ export default function App() {
             {trades.map(trade => {
               const exp = expandedId === trade.id;
               const pos = trade.returnRate >= 0;
-              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "종배", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", extraTags: trade.extraTags || [], lossReasons: trade.lossReasons || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
+              const ef = editForms[trade.id] || { name: trade.name, returnRate: String(trade.returnRate), profit: String(trade.profit), tagLarge: trade.tagLarge || "종배", tagMedium: trade.tagMedium || "", tagSmall: trade.tagSmall || "", extraTags: trade.extraTags || [], lossReasons: trade.lossReasons || [], lossReasonsOther: trade.lossReasonsOther || "", brokenPrinciples: trade.brokenPrinciples || [], chartImages: trade.chartImages || [], reason: trade.reason || "", reflection: trade.reflection || "" };
               const setEf = patch => setEditForms(p => ({ ...p, [trade.id]: { ...(p[trade.id] ?? ef), ...patch } }));
               const savEdit = () => {
-                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, extraTags: ef.extraTags || [], lossReasons: ef.lossReasons, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
+                const updated = { ...trade, name: ef.name, returnRate: parseFloat(ef.returnRate) || 0, profit: parseInt(String(ef.profit).replace(/[^0-9-]/g, "")) || 0, tagLarge: ef.tagLarge, tagMedium: ef.tagMedium, tagSmall: ef.tagSmall, extraTags: ef.extraTags || [], lossReasons: ef.lossReasons, lossReasonsOther: ef.lossReasonsOther, brokenPrinciples: ef.brokenPrinciples, chartImages: ef.chartImages, reason: ef.reason, reflection: ef.reflection };
                 upd({ trades: trades.map(t => t.id === trade.id ? updated : t) });
                 setExpandedId(null);
               };
@@ -1570,6 +1587,22 @@ export default function App() {
                                 onChange={() => setEf({ lossReasons: (ef.lossReasons || []).includes(r) ? ef.lossReasons.filter(x => x !== r) : [...(ef.lossReasons || []), r] })}
                                 style={{ accentColor: T.loss, width: 13, height: 13 }} />
                               <span style={{ color: (ef.lossReasons || []).includes(r) ? T.loss : T.sub }}>{r}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {(ef.lossReasons || []).includes("기타") && (
+                          <input style={{ ...inp, marginTop: 8 }} placeholder="기타 손실 이유를 입력하세요" value={ef.lossReasonsOther || ""} onChange={e => setEf({ lossReasonsOther: e.target.value })} />
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>어긴 원칙</label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {BROKEN_PRINCIPLES.map(r => (
+                            <label key={r} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12 }}>
+                              <input type="checkbox" checked={(ef.brokenPrinciples || []).includes(r)}
+                                onChange={() => setEf({ brokenPrinciples: (ef.brokenPrinciples || []).includes(r) ? ef.brokenPrinciples.filter(x => x !== r) : [...(ef.brokenPrinciples || []), r] })}
+                                style={{ accentColor: T.red, width: 13, height: 13 }} />
+                              <span style={{ color: (ef.brokenPrinciples || []).includes(r) ? T.red : T.sub }}>{r}</span>
                             </label>
                           ))}
                         </div>
