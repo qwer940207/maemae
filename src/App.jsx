@@ -1447,12 +1447,12 @@ export default function App() {
                         onChange={() => setForm(p => ({ ...p, lossReasons: p.lossReasons.includes(r) ? p.lossReasons.filter(x => x !== r) : [...p.lossReasons, r] }))}
                         style={{ accentColor: T.loss, width: 13, height: 13 }} />
                       <span style={{ color: form.lossReasons.includes(r) ? T.loss : T.sub }}>{r}</span>
+                      {r === "기타" && form.lossReasons.includes("기타") && (
+                        <input style={{ ...inp, width: 120, padding: "2px 7px", fontSize: 12 }} placeholder="직접 입력" value={form.lossReasonsOther} onChange={e => setForm(p => ({ ...p, lossReasonsOther: e.target.value }))} onClick={e => e.preventDefault()} />
+                      )}
                     </label>
                   ))}
                 </div>
-                {form.lossReasons.includes("기타") && (
-                  <input style={{ ...inp, marginTop: 8 }} placeholder="기타 손실 이유를 입력하세요" value={form.lossReasonsOther} onChange={e => setForm(p => ({ ...p, lossReasonsOther: e.target.value }))} />
-                )}
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>어긴 원칙</label>
@@ -1587,12 +1587,12 @@ export default function App() {
                                 onChange={() => setEf({ lossReasons: (ef.lossReasons || []).includes(r) ? ef.lossReasons.filter(x => x !== r) : [...(ef.lossReasons || []), r] })}
                                 style={{ accentColor: T.loss, width: 13, height: 13 }} />
                               <span style={{ color: (ef.lossReasons || []).includes(r) ? T.loss : T.sub }}>{r}</span>
+                              {r === "기타" && (ef.lossReasons || []).includes("기타") && (
+                                <input style={{ ...inp, width: 120, padding: "2px 7px", fontSize: 12 }} placeholder="직접 입력" value={ef.lossReasonsOther || ""} onChange={e => setEf({ lossReasonsOther: e.target.value })} onClick={e => e.preventDefault()} />
+                              )}
                             </label>
                           ))}
                         </div>
-                        {(ef.lossReasons || []).includes("기타") && (
-                          <input style={{ ...inp, marginTop: 8 }} placeholder="기타 손실 이유를 입력하세요" value={ef.lossReasonsOther || ""} onChange={e => setEf({ lossReasonsOther: e.target.value })} />
-                        )}
                       </div>
                       <div style={{ marginBottom: 12 }}>
                         <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 6 }}>어긴 원칙</label>
