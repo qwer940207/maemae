@@ -598,7 +598,17 @@ export default function App() {
     const merged = Object.values(mergedMap);
     const top5g = merged.filter(t => t.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 5);
     const top5l = merged.filter(t => t.profit < 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
-    const recent = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 10);
+    // 매매별 수익 TOP 5 (개별 매매)
+    const top5trades = [...filtered].sort((a, b) => b.profit - a.profit).slice(0, 5);
+    // 손실 이유 TOP 5
+    const lossReasonMap = {};
+    filtered.forEach(t => (t.lossReasons || []).forEach(r => { lossReasonMap[r] = (lossReasonMap[r] || 0) + 1; }));
+    const top5lossReasons = Object.entries(lossReasonMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    // 어긴 원칙 TOP 5
+    const principleMap = {};
+    filtered.forEach(t => (t.brokenPrinciples || []).forEach(r => { principleMap[r] = (principleMap[r] || 0) + 1; }));
+    const top5principles = Object.entries(principleMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
     const StatCard = ({ label, value, color, icon }) => (
       <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -619,6 +629,27 @@ export default function App() {
           <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
         </div>
         <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{t.count > 1 ? `${t.count}번 매매 합산` : fmtDate(t.date)}</div>
+      </div>
+    );
+    const TradeItem = ({ t }) => {
+      const pos = t.profit >= 0;
+      return (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>{truncName(t.name)}</span>
+              <Tag label={[t.tagSmall, t.tagMedium].filter(v => v && v !== "소분류 없음").join(" ")} pos={pos} />
+            </div>
+            <span style={{ fontWeight: 700, color: pos ? T.profit : T.loss, fontSize: 13, whiteSpace: "nowrap" }}>{pos ? "+" : "-"}{fmtMoney(t.profit)}</span>
+          </div>
+          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{fmtDate(t.date)}</div>
+        </div>
+      );
+    };
+    const CountItem = ({ label, count, color }) => (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{label}</span>
+        <span style={{ padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700, background: `rgba(${color},0.13)`, color: `rgb(${color})` }}>{count}회</span>
       </div>
     );
     return (
@@ -647,11 +678,10 @@ export default function App() {
             </div>
           )}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
           <StatCard icon="💰" label="총 수익금" value={(totalProfit >= 0 ? "+" : "-") + fmtMoney(totalProfit)} color={totalProfit >= 0 ? T.profit : T.loss} />
           <StatCard icon="🏆" label="승률" value={`${winRate}%`} color={T.text} />
-          <StatCard icon="🏦" label="총 자산" value="₩0" color={T.text} />
-          <StatCard icon="📅" label="이번달 수지" value={(monthlyProfit >= 0 ? "+" : "-") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.profit : T.loss} />
+          <StatCard icon="📅" label="이번달 수익" value={(monthlyProfit >= 0 ? "+" : "-") + fmtMoney(monthlyProfit)} color={monthlyProfit >= 0 ? T.profit : T.loss} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           {[{ title: "수익금 TOP 5", items: top5g, pos: true }, { title: "손실금 TOP 5", items: top5l, pos: false }].map(({ title, items, pos }) => (
@@ -660,6 +690,20 @@ export default function App() {
               {items.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : items.map((t, i) => <TopItem key={i} t={t} pos={pos} />)}
             </div>
           ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.profit, marginBottom: 14 }}>매매별 수익 TOP 5</div>
+            {top5trades.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5trades.map((t, i) => <TradeItem key={i} t={t} />)}
+          </div>
+          <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.loss, marginBottom: 14 }}>손실 이유 TOP 5</div>
+            {top5lossReasons.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5lossReasons.map(([label, count], i) => <CountItem key={i} label={label} count={count} color="37,99,235" />)}
+          </div>
+          <div style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.red, marginBottom: 14 }}>어긴 원칙 TOP 5</div>
+            {top5principles.length === 0 ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>데이터 없음</div> : top5principles.map(([label, count], i) => <CountItem key={i} label={label} count={count} color="229,62,82" />)}
+          </div>
         </div>
       </div>
     );
