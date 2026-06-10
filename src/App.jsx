@@ -246,9 +246,9 @@ export default function App() {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], tradeVolumeImg: src } })); setIsDirty(true); });
           } else if (focusedImgFieldRef.current === "watchlist") {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], watchlistImg: src } })); setIsDirty(true); });
-          } else if (focusedImgFieldRef.current === "expertImg" && showExpertForm) {
+          } else if (showExpertForm) {
             readImg(file, src => setExpertImages(p => [...p, src]));
-          } else if (focusedImgFieldRef.current === "expertImg" && editingExpertIdx !== null) {
+          } else if (editingExpertIdx !== null) {
             readImg(file, src => setEditingExpertImages(p => [...p, src]));
           } else {
             readImg(file, src => { setData(p => ({ ...p, [selDate]: { ...p[selDate], kakaoImages: [...(p[selDate]?.kakaoImages || []), src] } })); setIsDirty(true); });
@@ -1080,6 +1080,22 @@ export default function App() {
                 style={{ ...inp, minHeight: 90, resize: "vertical", lineHeight: 1.7, fontSize: 13 }}
                 placeholder="예) 어제는 금리 우려로 기술주 약세, 오늘은 반동 시도 예상 but 거래량 부족 우려..."
               />
+              <div style={{ display: "flex", gap: 16, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: T.sub }}>지켰음</span>
+                  <button onClick={() => upd({ marketKept: j.marketKept === true ? null : true })}
+                    style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${j.marketKept === true ? T.green : T.inputBd}`, background: j.marketKept === true ? "rgba(34,197,94,0.15)" : "transparent", color: j.marketKept === true ? T.green : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>O</button>
+                  <button onClick={() => upd({ marketKept: j.marketKept === false ? null : false })}
+                    style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${j.marketKept === false ? T.red : T.inputBd}`, background: j.marketKept === false ? "rgba(239,68,68,0.15)" : "transparent", color: j.marketKept === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: T.sub }}>맞았음</span>
+                  <button onClick={() => upd({ marketCorrect: j.marketCorrect === true ? null : true })}
+                    style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${j.marketCorrect === true ? T.green : T.inputBd}`, background: j.marketCorrect === true ? "rgba(34,197,94,0.15)" : "transparent", color: j.marketCorrect === true ? T.green : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>O</button>
+                  <button onClick={() => upd({ marketCorrect: j.marketCorrect === false ? null : false })}
+                    style={{ padding: "3px 14px", borderRadius: 6, border: `1px solid ${j.marketCorrect === false ? T.red : T.inputBd}`, background: j.marketCorrect === false ? "rgba(239,68,68,0.15)" : "transparent", color: j.marketCorrect === false ? T.red : T.sub, fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>X</button>
+                </div>
+              </div>
             </div>
 
             {/* 시나리오 목록 */}
@@ -1337,7 +1353,7 @@ export default function App() {
                               ))}
                             </div>
                           )}
-                          <div ref={editExpertPasteRef} tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, outline: "none", cursor: "default" }}>
+                          <div ref={editExpertPasteRef} tabIndex={0} onClick={() => { focusedImgFieldRef.current = "expertImg"; }} onFocus={() => { focusedImgFieldRef.current = "expertImg"; }} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 8, padding: "8px 6px", textAlign: "center", background: T.input, fontSize: 11, color: T.sub, outline: "none", cursor: "pointer" }}>
                             📋 클릭 후 Ctrl+V
                           </div>
                         </div>
@@ -1531,9 +1547,12 @@ export default function App() {
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: T.sub, display: "block", marginBottom: 5 }}>차트 사진</label>
-                <div onClick={() => chartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", cursor: "pointer", background: T.input }}>
+                <div tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "20px 16px", textAlign: "center", cursor: "default", background: T.input, outline: "none" }}>
                   <div style={{ fontSize: 22, marginBottom: 4 }}>🖼️</div>
-                  <div style={{ color: T.sub, fontSize: 12 }}>클릭하여 선택 · 마우스를 올린 채 Ctrl+V로 붙여넣기</div>
+                  <div style={{ color: T.sub, fontSize: 12 }}>Ctrl+V로 붙여넣기</div>
+                </div>
+                <div style={{ textAlign: "center", marginTop: 6 }}>
+                  <button onClick={() => chartRef.current?.click()} style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "5px 14px", fontSize: 11, color: T.sub, cursor: "pointer" }}>📁 파일 선택</button>
                 </div>
                 <input ref={chartRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => setForm(p => ({ ...p, chartImages: [...p.chartImages, src] }))))} />
                 {form.chartImages.length > 0 && (
@@ -1688,8 +1707,11 @@ export default function App() {
                               style={{ width: "100%", borderRadius: 8, cursor: "zoom-in", display: "block" }} />
                           </div>
                         )}
-                        <div onClick={() => editChartRef.current?.click()} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "14px", textAlign: "center", cursor: "pointer", background: T.input, fontSize: 12, color: T.sub }}>
-                          🖼️ 클릭하여 추가
+                        <div tabIndex={0} style={{ border: `1.5px dashed ${T.inputBd}`, borderRadius: 10, padding: "14px", textAlign: "center", cursor: "default", background: T.input, fontSize: 12, color: T.sub, outline: "none" }}>
+                          🖼️ Ctrl+V로 붙여넣기
+                        </div>
+                        <div style={{ textAlign: "center", marginTop: 6 }}>
+                          <button onClick={() => editChartRef.current?.click()} style={{ background: "none", border: `1px solid ${T.inputBd}`, borderRadius: 6, padding: "5px 14px", fontSize: 11, color: T.sub, cursor: "pointer" }}>📁 파일 선택</button>
                         </div>
                         <input ref={editChartRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => Array.from(e.target.files).forEach(f => readImg(f, src => setEf({ chartImages: [...ef.chartImages, src] })))} />
                       </div>
